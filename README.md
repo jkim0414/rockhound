@@ -7,6 +7,13 @@ goes into the collection with a field card to read.
 It is a plain static web app (no build step, no accounts, no tracking). All progress is
 saved on the device.
 
+## Live site
+
+(address removed)
+
+Hosted on Vercel from this repository. Every push to `main` redeploys it within a minute.
+Always install and play from that exact address: progress is stored per address.
+
 ## Run it on this computer
 
 ```bash
