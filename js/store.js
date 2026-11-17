@@ -79,6 +79,7 @@ function load() {
 }
 const write = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* storage full or blocked */ } };
 export let S = load();
+write();                                    // keep any recalibration done while loading
 let afterSave = null;                       // cloud save listens here
 export const setAfterSave = fn => { afterSave = fn; };
 export const save = () => { write(); if (afterSave) afterSave(); };
