@@ -15,19 +15,45 @@ const fresh = () => ({
   read: {}, quiz: {}, solved: 0,
 });
 
-function load() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(KEY));
-    if (raw && raw.v === 1) {
-      const base = fresh();
-      return { ...base, ...raw, math: { ...base.math, ...raw.math }, set: { ...base.set, ...raw.set } };
-    }
-  } catch { /* fall through to a fresh game */ }
-  return fresh();
+// Fill in anything missing so older or partial saves still load.
+export function normalize(raw) {
+  const base = fresh();
+  if (!raw || raw.v !== 1) return base;
+  return { ...base, ...raw, math: { ...base.math, ...raw.math }, set: { ...base.set, ...raw.set } };
 }
+function load() {
+  try { return normalize(JSON.parse(localStorage.getItem(KEY))); } catch { return fresh(); }
+}
+const write = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* storage full or blocked */ } };
 export let S = load();
-export const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* storage full or blocked */ } };
+let afterSave = null;                       // cloud save listens here
+export const setAfterSave = fn => { afterSave = fn; };
+export const save = () => { write(); if (afterSave) afterSave(); };
 export const resetAll = () => { const keep = { name: S.name, pin: S.pin, set: S.set }; S = { ...fresh(), ...keep }; save(); };
+// Replace everything with a state that came from the cloud (does not count as a local change).
+export const adopt = state => { S = normalize(state); write(); };
+export const wipe = () => { S = fresh(); write(); };
+export const hasProgress = () => S.solved > 0 || Object.keys(S.collected).length > 0;
+
+// Combine two copies of the same explorer that changed on different devices.
+// Nothing found is ever lost: collections, finished chapters and stars are combined.
+// Math levels and settings come from the copy with more problems solved.
+export function mergeStates(x, y) {
+  x = normalize(x); y = normalize(y);
+  const [base, other] = y.solved > x.solved ? [y, x] : [x, y];
+  const out = JSON.parse(JSON.stringify(base));
+  for (const [id, t] of Object.entries(other.collected)) out.collected[id] = Math.min(out.collected[id] || Infinity, t);
+  out.order = Object.keys(out.collected).sort((p, q) => out.collected[q] - out.collected[p]);
+  for (const k of Object.keys(other.read)) out.read[k] = 1;
+  for (const [id, n] of Object.entries(other.quiz)) out.quiz[id] = Math.max(out.quiz[id] || 0, n);
+  for (const [k, v] of Object.entries(other.stats)) if (!out.stats[k] || v.a > out.stats[k].a) out.stats[k] = v;
+  const seen = new Set(out.log.map(l => l.t + l.k));
+  out.log = out.log.concat(other.log.filter(l => !seen.has(l.t + l.k))).sort((p, q) => q.t - p.t).slice(0, 80);
+  if (out.box && out.collected[out.box.target]) out.box = null;
+  out.day = x.day.d === y.day.d ? { d: x.day.d, n: Math.max(x.day.n, y.day.n) } : (x.day.d > y.day.d ? x.day : y.day);
+  out.name = base.name || other.name; out.pin = base.pin || other.pin;
+  return out;
+}
 
 const ri = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -72,7 +98,7 @@ export function startBox(variant) {
     m.last = p.skill;
     return p;
   });
-  S.box = { target: pick(pool).id, lucky, variant, probs, i: 0, tries: 0, miss: 0, h: 0, ups: [] };
+  S.box = { target: pick(pool).id, lucky, variant, probs, i: 0, tries: 0, miss: 0, h: 0, ok: false, ups: [] };
   save();
   return S.box;
 }

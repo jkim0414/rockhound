@@ -4,6 +4,7 @@ import { STRANDS, STRAND_IDS, MAX_LEVEL, check, skillsAt, skillName } from "./ma
 import { crystalSVG, mysteryRock } from "./shapes.js";
 import { CREDITS } from "./credits.js";
 import * as G from "./store.js";
+import * as Sync from "./sync.js";
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const view = $("#view");
@@ -62,11 +63,39 @@ function render() {
   document.body.dataset.route = routes[name] ? name : "home";
   fn(arg);
   document.querySelectorAll("nav.tabs a").forEach(a => a.classList.toggle("on", a.dataset.tab === document.body.dataset.route || (a.dataset.tab === "dex" && name === "card") || (a.dataset.tab === "home" && (name === "dig" || name === "found"))));
-  const n = unreadLessons(); const badge = $("#guidebadge"); badge.textContent = n || ""; badge.hidden = !n;
+  paintBadge();
   if (name !== "dig") window.scrollTo(0, 0);
 }
+function paintBadge() { const n = unreadLessons(), badge = $("#guidebadge"); badge.textContent = n || ""; badge.hidden = !n; }
 function go(r) { if (location.hash.slice(1) === r) render(); else location.hash = r; }
 window.addEventListener("hashchange", render);
+
+// ───────── cloud save helpers
+const CLOUD_TEXT = { saved: "☁️ Saved", pending: "☁️ Not saved yet", saving: "☁️ Saving…", gone: "☁️ Cloud save missing", off: "" };
+const cloudText = () => CLOUD_TEXT[Sync.getStatus()] || "";
+const CLOUD_ERR = { key: "That family key is not right.", code: "That code was not found. Check each character and try again.",
+  full: "This family already has the largest number of cloud saves allowed.", offline: "No internet connection. Try again when you are online.",
+  slow: "Too many tries. Please wait ten minutes.", setup: "Cloud save has not been set up on the server yet." };
+const cloudErr = e => CLOUD_ERR[e] || "Something went wrong. Please try again.";
+const ago = t => { const m = Math.round((Date.now() - t) / 60000); return !t ? "not yet" : m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`; };
+function cloudSection() {
+  if (!Sync.isOn()) return `<h3>Cloud save</h3>
+    <p class="sub">Keeps this explorer's collection and math progress in your own private storage, so it follows them to any phone, tablet, or computer. Only the name and game progress are stored.</p>
+    <form id="cloudform" class="settings"><label>Family key <input id="famkey" autocomplete="off" autocapitalize="none" spellcheck="false" required></label>
+      <button class="btn">Turn on cloud save for ${esc(G.S.name || "this explorer")}</button></form>
+    <form id="joinform" class="settings" style="margin-top:18px"><label>Or use an existing cloud save code on this device
+      <input id="joincode" class="codein" maxlength="19" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" required></label>
+      <button class="btn alt">Load that cloud save here</button><small class="sub">Anything already found on this device is added to it.</small></form>
+    <div id="cloudmsg" class="feedback soft"></div>`;
+  if (Sync.getStatus() === "gone") return `<h3>Cloud save</h3><p>This cloud save no longer exists. It was deleted from another device. Progress on this device is safe.</p>
+    <button class="btn" data-act="cloudforget">Turn cloud save off here</button>`;
+  return `<h3>Cloud save</h3>
+    <p>Cloud save is <b>on</b> · <span id="cloudstate">${cloudText()}</span> · last saved ${ago(Sync.savedAt())}</p>
+    <div class="codebox" aria-label="Cloud save code">${esc(Sync.getCode())}</div>
+    <p class="sub">To continue on another device, open Rockhound there and choose <b>I already have a cloud save code</b> on the welcome screen. Keep this code private: anyone who has it can load and change this collection. Each explorer gets their own code.</p>
+    <div class="row left"><button class="btn" data-act="syncnow">Save now</button><button class="btn alt" data-act="signout">Sign out on this device</button><button class="btn danger" data-act="clouddelete">Delete cloud save</button></div>
+    <div id="cloudmsg" class="feedback soft"></div>`;
+}
 
 // ───────── HOME
 function welcome() {
@@ -78,6 +107,10 @@ function welcome() {
     <form id="nameform"><label for="nm">What is your name, rockhound?</label>
       <input id="nm" maxlength="16" autocomplete="off" autocapitalize="words" placeholder="Your first name" required>
       <button class="btn big">Start exploring</button></form>
+    <p class="foot"><a data-act="showjoin">I already have a cloud save code</a></p>
+    <form id="joinform" hidden><label for="joincode">Type your cloud save code</label>
+      <input id="joincode" class="codein" maxlength="19" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" required>
+      <button class="btn big alt">Load my collection</button><div id="feedback" class="feedback"></div></form>
   </section>`;
 }
 
@@ -87,13 +120,13 @@ function home() {
   const st = G.stageNow(), done = st > STAGES.length, stage = stageOf(st), found = G.countFound();
   let cta;
   if (done) cta = `<div class="panel center"><h2>🏛️ The collection is complete!</h2><p>You found all ${TOTAL} specimens and earned the rank of <b>${FINAL_RANK}</b>. Visit your collection, earn stars in the Field Test, or re-read the Field Guide.</p></div>`;
-  else if (S.box) cta = `<div class="panel center"><h2>Keep cracking!</h2><button class="rockbtn solo" data-go="dig">${mysteryRock(S.box.variant, S.box.i)}</button><p>${S.box.i} of 3 strikes done.</p><button class="btn big" data-go="dig">Pick up the hammer</button></div>`;
+  else if (S.box) cta = `<div class="panel center"><h2>Keep cracking!</h2><button class="rockbtn solo" data-go="dig">${mysteryRock(S.box.variant, S.box.i + (S.box.ok ? 1 : 0))}</button><p>${S.box.i + (S.box.ok ? 1 : 0)} of 3 strikes done.</p><button class="btn big" data-go="dig">Pick up the hammer</button></div>`;
   else if (!G.canDig()) cta = `<div class="panel center"><h2>⛺ The dig site is closed for today</h2><p>You cracked ${G.boxesToday()} rocks today. Great work! Come back tomorrow for more. Until then, explore your collection or the Field Guide.</p></div>`;
   else cta = `<h2 class="pickh">Pick a mystery rock to crack!</h2><div class="rocks">${[0, 1, 2].map(v => `<button class="rockbtn" data-act="pick" data-v="${v}" aria-label="Mystery rock ${v + 1}">${mysteryRock(v)}</button>`).join("")}</div><p class="sub center">Three hammer strikes. Each strike is a math problem.</p>`;
   const recent = S.order.slice(0, 6).map(id => BY_ID[id]).filter(Boolean);
   view.innerHTML = `<section class="home">
     <div class="hero">
-      <div class="rankrow"><span class="rank">🏅 ${G.rankName()}</span><span class="count">${found} / ${TOTAL}</span></div>
+      <div class="rankrow"><span class="rank">🏅 ${G.rankName()}</span><span class="rankright">${Sync.isOn() ? `<span class="cloud" id="cloudchip">${cloudText()}</span>` : ""}<span class="count">${found} / ${TOTAL}</span></span></div>
       <h1>Hi, ${esc(S.name)}!</h1>
       <div class="bar"><i style="width:${Math.max(2, 100 * found / TOTAL)}%"></i></div>
       ${done ? "" : `<p class="exp">Expedition ${stage.n}: <b>${stage.name}</b> · ${G.foundIn(st)} of ${G.sizeOf(st)} found<br><span>${stage.blurb}</span></p>`}
@@ -112,25 +145,27 @@ function resetEntry() {
   entry = { f: p.type === "frac" ? { n: "", d: "" } : p.type === "rem" ? { q: "", r: "" } : { a: "" }, active: p.type === "frac" ? "n" : p.type === "rem" ? "q" : "a", carries: [] };
 }
 
-function vertHTML(p) {
+function vertHTML(p, solved) {
   const cols = Math.max(String(p.ans).length, ...p.vert.rows.map(r => String(r).length));
   const cell = (ch, c, cls = "") => `<span class="vc p${c % 3}${c % 3 === 0 && c > 0 ? " gap" : ""} ${cls}">${ch}</span>`;
   const row = n => { const s = String(n); let out = ""; for (let c = cols - 1; c >= 0; c--) out += cell(c < s.length ? s[s.length - 1 - c] : "", c); return out; };
   let carry = "";
   if (p.vert.op !== "−") { carry = `<div class="vrow"><span class="vop"></span>`; for (let c = cols - 1; c >= 0; c--) carry += c === 0 ? cell("", 0) : `<button class="vc vcarry p${c % 3}${c % 3 === 0 ? " gap" : ""}" data-act="carry" data-c="${c}" aria-label="carry">${entry.carries[c] || ""}</button>`; carry += "</div>"; }
   const typed = entry.f.a; let ans = "";
-  for (let c = cols - 1; c >= 0; c--) ans += cell(typed[c] || "", c, "va" + (c === typed.length ? " cur" : ""));
+  for (let c = cols - 1; c >= 0; c--) ans += cell(typed[c] || "", c, "va" + (solved ? " ok" : c === typed.length ? " cur" : ""));
   return `<div class="vert" style="--cols:${cols}">${carry}${p.vert.rows.map((n, i) => `<div class="vrow"><span class="vop">${i === p.vert.rows.length - 1 ? p.vert.op : ""}</span>${row(n)}</div>`).join("")}
     <div class="vline"></div><div class="vrow"><span class="vop"></span>${ans}</div></div>
-    <p class="vnote">Type the <b class="pu">units</b> digit first, just like on paper.</p>`;
+    ${solved ? "" : `<p class="vnote">Type the <b class="pu">units</b> digit first, just like on paper.</p>`}`;
 }
 
-function answerHTML(p) {
-  const box = (f, cls = "") => `<button class="ansbox ${cls}${entry.active === f ? " active" : ""}" data-act="field" data-f="${f}">${entry.f[f] || `<span class="hole">?</span>`}</button>`;
-  if (p.vert) return vertHTML(p);
+function answerHTML(p, solved) {
+  const box = (f, cls = "") => solved
+    ? `<span class="ansbox ok ${cls}">${entry.f[f]}</span>`
+    : `<button class="ansbox ${cls}${entry.active === f ? " active" : ""}" data-act="field" data-f="${f}">${entry.f[f] || `<span class="hole">?</span>`}</button>`;
+  if (p.vert) return vertHTML(p, solved);
   if (p.type === "frac") return `<div class="ansrow"><div class="ansfrac">${box("n", "sm")}<span class="frbar"></span>${box("d", "sm")}</div></div>`;
   if (p.type === "rem") return `<div class="ansrow rem"><label>${box("q", "sm")}<span>${p.labels[0]}</span></label><label>${box("r", "sm")}<span>${p.labels[1]}</span></label></div>`;
-  if (p.type === "choice") return "";
+  if (p.type === "choice") return solved ? `<div class="ansrow">${p.choices.map((c, i) => `<span class="ansbox chosen${i === p.ans ? " ok" : " dim"}">${c}</span>`).join("")}</div>` : "";
   return `<div class="ansrow">${box("a")}${p.unit ? `<span class="unit">${p.unit}</span>` : ""}</div>`;
 }
 
@@ -144,6 +179,8 @@ function helpHTML(p, b) {
 }
 
 function padHTML(p, b) {
+  // A solved problem stays on screen until he chooses to move on.
+  if (b.ok) return `<div class="pad next"><button class="btn big" data-act="next">${b.i >= 2 ? "Break it open! ▸" : "Next strike ▸"}</button></div>`;
   if (b.h >= 3) return `<div class="pad done"></div>`;
   if (p.type === "choice") return `<div class="pad choices">${p.choices.map((c, i) => `<button class="btn choice" data-act="choose" data-i="${i}">${c}</button>`).join("")}</div>`;
   const keys = ["7", "8", "9", "4", "5", "6", "1", "2", "3", p.dec ? "." : "", "0", "⌫"];
@@ -151,34 +188,44 @@ function padHTML(p, b) {
     <button class="btn big check" data-act="check">🔨 Strike!</button></div>`;
 }
 
+// What the answer boxes show for a solved problem after a reload (the typed entry is gone).
+function solvedEntry(p) {
+  const f = p.type === "frac" ? { n: String(p.ans.n), d: String(p.ans.d) } : p.type === "rem" ? { q: String(p.ans.q), r: String(p.ans.r) }
+    : { a: p.type === "choice" ? "" : p.vert ? String(p.ans).split("").reverse().join("") : String(p.ans) };
+  return { f, active: "", carries: [] };
+}
+
 function dig() {
   const b = G.S.box;
   if (!b) return go("home");
-  if (!entry) resetEntry();
-  busy = false;
   const p = cur(), sd = STRANDS[p.strand];
+  if (!entry) { if (b.ok) entry = solvedEntry(p); else resetEntry(); }
+  busy = false;
+  const cracks = b.i + (b.ok ? 1 : 0);
   view.innerHTML = `<section class="dig">
     <div class="digtop"><button class="link" data-go="home">‹ Camp</button>
-      <div class="strikes">${[0, 1, 2].map(i => `<span class="${i < b.i ? "hit" : i === b.i ? "now" : ""}">🔨</span>`).join("")}</div>
+      <div class="strikes">${[0, 1, 2].map(i => `<span class="${i < cracks ? "hit" : i === b.i ? "now" : ""}">🔨</span>`).join("")}</div>
       <span class="chip">${sd.icon} ${sd.name}</span></div>
     <div class="digbody">
-      <div class="rockwrap" id="rockwrap">${mysteryRock(b.variant, b.i)}<p class="sub">Strike ${b.i + 1} of 3</p></div>
-      <div class="problem">
+      <div class="rockwrap" id="rockwrap">${mysteryRock(b.variant, cracks)}<p class="sub">${b.ok ? (b.i >= 2 ? "It is ready to break open!" : "The rock is cracking…") : `Strike ${b.i + 1} of 3`}</p></div>
+      <div class="problem" id="problem">
         <div class="q">${p.q}</div>
         ${p.vis ? `<div class="vis">${p.vis}</div>` : ""}
-        <div id="answer"${b.h >= 3 ? " hidden" : ""}>${answerHTML(p)}</div>
-        <div id="feedback" class="feedback" aria-live="polite"></div>
-        <div id="help">${helpHTML(p, b)}</div>
-        ${b.h < 2 ? `<button class="link hintbtn" data-act="hint">${b.h ? "Show me more" : "💡 I'd like a hint"}</button>` : ""}
+        <div id="answer"${b.h >= 3 && !b.ok ? " hidden" : ""}>${answerHTML(p, b.ok)}</div>
+        <div id="feedback" class="feedback${b.ok ? " good" : ""}" aria-live="polite">${b.ok ? `<b>✓ ${b.praise || "Correct!"}</b><span>You got it right.</span>` : ""}</div>
+        <div id="help">${b.ok ? "" : helpHTML(p, b)}</div>
+        ${b.h < 2 && !b.ok ? `<button class="link hintbtn" data-act="hint">${b.h ? "Show me more" : "💡 I'd like a hint"}</button>` : ""}
       </div>
       <div id="pad">${padHTML(p, b)}</div>
     </div></section>`;
 }
 const paintAnswer = () => { $("#answer").innerHTML = answerHTML(cur()); };
 const say = (html, cls = "") => { const f = $("#feedback"); if (f) { f.className = "feedback " + cls; f.innerHTML = html; } };
+// Keep the newest message in view inside the problem card.
+const reveal = sel => { const el = $(sel); if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest", behavior: "smooth" }); };
 
 function pressKey(k) {
-  if (busy || !G.S.box || G.S.box.h >= 3) return;
+  if (busy || !G.S.box || G.S.box.h >= 3 || G.S.box.ok) return;
   const p = cur(); if (p.type === "choice") return;
   let v = entry.f[entry.active];
   if (k === "⌫") v = v.slice(0, -1);
@@ -192,7 +239,7 @@ const MISS = ["Not yet — the rock held. Give it another tap!", "Tough rock! Ta
 const HIT = ["Crack!", "Solid strike!", "Great hit!", "That's it!", "Right on the mark!"];
 
 function submit(choice) {
-  if (busy || !G.S.box) return;
+  if (busy || !G.S.box || G.S.box.ok) return;
   const b = G.S.box, p = cur(); let input;
   const nudge = () => { const a = $("#answer"); a.classList.remove("nudge"); void a.offsetWidth; a.classList.add("nudge"); };
   if (p.type === "choice") input = choice;
@@ -210,20 +257,31 @@ function submit(choice) {
   $("#help").innerHTML = helpHTML(p, b);
   if (b.h >= 3) { $("#pad").innerHTML = padHTML(p, b); $("#answer").hidden = true; const hb = $(".hintbtn"); if (hb) hb.remove(); say("Let's look at this one together.", "soft"); }
   else { say(res.msg || pick(MISS), "soft"); const hb = $(".hintbtn"); if (hb) { if (b.h >= 2) hb.remove(); else hb.textContent = "Show me more"; } }
+  reveal(b.h >= 2 ? "#help" : "#feedback");
 }
 
+// Correct! Record it, crack the rock, and wait on this screen until he taps Next.
 function strike() {
   const b = G.S.box, p = cur();
-  busy = true;
   if (G.recordSolve(p, b.tries) === "up") b.ups.push(p.strand);
-  b.i++; b.tries = 0; b.miss = 0; b.h = 0; entry = null; G.save();
+  b.ok = true; b.praise = pick(HIT);
+  G.save();
   sfx("crack");
-  say(`<b>✓ ${pick(HIT)}</b>`, "good");
+  dig();
+  $("#rockwrap").classList.add("struck");
+  reveal("#feedback");
+}
+
+function nextStrike() {
+  const b = G.S.box;
+  if (busy || !b || !b.ok) return;
+  b.i++; b.ok = false; b.praise = ""; b.tries = 0; b.miss = 0; b.h = 0; entry = null;
+  G.save();
+  if (b.i < 3) { sfx("tap"); return dig(); }
+  busy = true;
   const wrap = $("#rockwrap");
-  wrap.innerHTML = mysteryRock(b.variant, Math.min(b.i, 3)) + `<p class="sub">${b.i < 3 ? "The rock is cracking…" : "It is breaking open!"}</p>`;
-  wrap.classList.add("struck");
-  if (b.i >= 3) setTimeout(() => { sfx("open"); wrap.classList.add("burst"); }, 500);
-  setTimeout(() => { if (b.i >= 3) { G.award(); sfx("found"); go("found"); } else dig(); }, b.i >= 3 ? 1300 : 1050);
+  if (wrap) { sfx("open"); wrap.classList.add("burst"); }
+  setTimeout(() => { G.award(); Sync.checkpoint(); sfx("found"); go("found"); }, 800);
 }
 
 // ───────── FOUND (reveal)
@@ -352,19 +410,23 @@ function card(id) {
 }
 
 // ───────── FIELD GUIDE
+const finishHTML = (l, next) => G.S.read[l.id]
+  ? `<p class="finished">✓ You finished this chapter.</p>${next ? `<button class="btn" data-go="guide/${next.id}">Next chapter: ${next.title} ▸</button>` : `<button class="btn" data-go="guide">Back to the Field Guide</button>`}`
+  : `<p class="sub">Read all the way to here?</p><button class="btn big" data-act="finish" data-id="${l.id}">✓ I finished reading</button>`;
+
 function guide(id) {
   const l = LESSON_BY_ID[id];
   if (l && lessonOpen(l)) {
-    if (!G.S.read[l.id]) { G.S.read[l.id] = 1; G.save(); }
-    const open = LESSONS.filter(lessonOpen), at = open.indexOf(l), next = open[at + 1];
+    // Opening a chapter does not count as reading it. He marks it finished himself.
+    const open = LESSONS.filter(lessonOpen), next = open[open.indexOf(l) + 1];
     view.innerHTML = `<section class="lesson"><div class="cardnav"><button class="link" data-go="guide">‹ Field Guide</button></div>
       <article class="paper"><div class="licon">${l.icon}</div><h1>${l.title}</h1>${l.body}
-      ${next ? `<button class="btn" data-go="guide/${next.id}">Next chapter: ${next.title} ▸</button>` : ""}</article></section>`;
+      <div class="finish" id="finish">${finishHTML(l, next)}</div></article></section>`;
     return;
   }
   view.innerHTML = `<section class="guide"><h1>Field Guide</h1><p class="sub">A new chapter unlocks each time you reach a new expedition.</p>
     <div class="chapters">${LESSONS.map((x, i) => lessonOpen(x)
-      ? `<button class="chapter" data-go="guide/${x.id}"><span class="licon">${x.icon}</span><span><small>Chapter ${i + 1}</small><b>${x.title}</b></span>${G.S.read[x.id] ? `<span class="tick">✓</span>` : `<span class="new">NEW</span>`}</button>`
+      ? `<button class="chapter" data-go="guide/${x.id}"><span class="licon">${x.icon}</span><span><small>Chapter ${i + 1}</small><b>${x.title}</b></span>${G.S.read[x.id] ? `<span class="tick">✓ Read</span>` : `<span class="new">TO READ</span>`}</button>`
       : `<div class="chapter locked"><span class="licon">🔒</span><span><small>Chapter ${i + 1}</small><b>${x.title}</b><i>Unlocks at Expedition ${x.stage}: ${STAGES[x.stage - 1].name}</i></span></div>`).join("")}</div></section>`;
 }
 
@@ -451,6 +513,7 @@ function grown() {
       <table class="gtable"><tr><th>Strand</th><th>Level</th><th>First try</th></tr>${rows}</table>
       <h3>Recent problems</h3>
       ${S.log.length ? `<table class="gtable small">${S.log.slice(0, 15).map(l => `<tr><td>${STRANDS[l.s].icon} L${l.l}</td><td>${skillName(l.k)}</td><td>${label(l.n)}</td></tr>`).join("")}</table>` : `<p class="sub">Nothing yet.</p>`}
+      <div id="cloudsec">${cloudSection()}</div>
       <h3>Settings</h3>
       <form id="setform" class="settings">
         <label>Explorer's name <input id="setname" maxlength="16" value="${esc(S.name)}"></label>
@@ -482,23 +545,58 @@ document.addEventListener("click", e => {
     case "key": return pressKey(d.k);
     case "check": return submit();
     case "choose": return submit(Number(d.i));
-    case "field": entry.active = d.f; return paintAnswer();
-    case "carry": { const c = Number(d.c); entry.carries[c] = ((entry.carries[c] || 0) + 1) % 4; return paintAnswer(); }
-    case "hint": { const b = G.S.box; b.h = Math.min(2, b.h + 1); G.save(); $("#help").innerHTML = helpHTML(cur(), b); if (b.h >= 2) a.remove(); else a.textContent = "Show me more"; return; }
+    case "field": if (G.S.box.ok) return; entry.active = d.f; return paintAnswer();
+    case "carry": { if (G.S.box.ok) return; const c = Number(d.c); entry.carries[c] = ((entry.carries[c] || 0) + 1) % 4; return paintAnswer(); }
+    case "hint": { const b = G.S.box; b.h = Math.min(2, b.h + 1); G.save(); $("#help").innerHTML = helpHTML(cur(), b); if (b.h >= 2) a.remove(); else a.textContent = "Show me more"; reveal("#help"); return; }
     case "fresh": G.swapProblem(); entry = null; return dig();
+    case "next": return nextStrike();
+    case "finish": {
+      const l = LESSON_BY_ID[d.id]; G.S.read[l.id] = 1; G.save(); Sync.checkpoint(); sfx("star");
+      const open = LESSONS.filter(lessonOpen);
+      $("#finish").innerHTML = finishHTML(l, open[open.indexOf(l) + 1]);
+      return paintBadge();
+    }
     case "lens": lens = d.l; return dex();
     case "locked": { const s = BY_ID[d.id]; return toast(`#${pad3(s.num)} is still hidden. Look for it in Expedition ${s.st}: ${stageOf(s.st).name}.`); }
     case "quizstart": buildQuiz(); return quiz();
     case "quizpick": return quizPick(Number(d.i), a);
-    case "quiznext": qz.i++; qz.missed = false; qz.answered = false; return quiz();
-    case "lvl": { const m = G.S.math[d.s]; m.lvl = Math.max(1, Math.min(MAX_LEVEL, m.lvl + Number(d.d))); m.m = 0; m.bad = 0; G.save(); return grown(); }
-    case "reset": if (confirm("Erase the whole collection and all math history on this device?")) { G.resetAll(); entry = null; qz = null; toast("Progress reset."); go("home"); } return;
+    case "quiznext": qz.i++; qz.missed = false; qz.answered = false; if (qz.i >= qz.qs.length) Sync.checkpoint(); return quiz();
+    case "lvl": { const m = G.S.math[d.s]; m.lvl = Math.max(1, Math.min(MAX_LEVEL, m.lvl + Number(d.d))); m.m = 0; m.bad = 0; G.save(); Sync.checkpoint(4000); return grown(); }
+    case "reset": if (confirm("Erase the whole collection and all math history on this device?")) { G.resetAll(); Sync.checkpoint(); entry = null; qz = null; toast("Progress reset."); go("home"); } return;
+    case "showjoin": { const f = $("#joinform"); f.hidden = false; a.parentElement.hidden = true; $("#joincode").focus(); return; }
+    case "syncnow": { const msg = $("#cloudmsg"); msg.textContent = "Saving…"; G.save(); Sync.push().then(ok => { if ($("#cloudsec")) { $("#cloudsec").innerHTML = cloudSection(); $("#cloudmsg").textContent = ok ? "Saved." : "Could not reach the cloud. It will keep trying."; } }); return; }
+    case "signout": {
+      if (!confirm("Sign out on this device?\n\nThe collection stays safe in the cloud save. This device goes back to the welcome screen. Make sure you have written down the code.")) return;
+      Sync.signOut().then(ok => {
+        if (!ok && !confirm("The latest changes on this device could not be saved to the cloud.\n\nSign out anyway and lose them?")) return;
+        (ok ? Promise.resolve(true) : Sync.signOut(true)).then(() => { entry = null; qz = null; grownOK = false; go("home"); });
+      });
+      return;
+    }
+    case "clouddelete": if (confirm("Delete the cloud save?\n\nThe cloud copy is erased and the code stops working on every device. Progress on this device stays.")) Sync.removeCloud().then(ok => { if (ok) { toast("Cloud save deleted."); grown(); } else $("#cloudmsg").textContent = "Could not reach the cloud. Try again."; }); return;
+    case "cloudforget": Sync.forgetLocal(); return grown();
   }
 });
 
 document.addEventListener("submit", e => {
   e.preventDefault();
   if (e.target.id === "nameform") { const v = $("#nm").value.trim(); if (!v) return; G.S.name = v; G.save(); go("guide/start"); }
+  if (e.target.id === "joinform") {
+    const btn = e.target.querySelector("button"), msg = $("#cloudmsg") || $("#feedback");
+    btn.disabled = true; msg.className = "feedback soft"; msg.textContent = "Looking for that cloud save…";
+    Sync.join($("#joincode").value).then(err => {
+      if (err) { btn.disabled = false; msg.textContent = cloudErr(err); return; }
+      entry = null; qz = null; toast("Cloud save loaded."); go("home");
+    });
+  }
+  if (e.target.id === "cloudform") {
+    const btn = e.target.querySelector("button"), msg = $("#cloudmsg");
+    btn.disabled = true; msg.textContent = "Setting up…";
+    Sync.create($("#famkey").value).then(err => {
+      if (err) { btn.disabled = false; msg.textContent = cloudErr(err); return; }
+      $("#cloudsec").innerHTML = cloudSection(); toast("Cloud save is on.");
+    });
+  }
   if (e.target.id === "pinform") {
     const v = $("#pin").value;
     if (!/^\d{4}$/.test(v)) return say("Use exactly 4 digits.", "soft");
@@ -507,7 +605,7 @@ document.addEventListener("submit", e => {
   }
   if (e.target.id === "setform") {
     G.S.name = $("#setname").value.trim() || G.S.name; G.S.set.limit = Number($("#setlimit").value); G.S.set.sound = $("#setsound").checked;
-    G.save(); toast("Settings saved.");
+    G.save(); Sync.checkpoint(); toast("Settings saved.");
   }
 });
 
@@ -515,7 +613,7 @@ document.addEventListener("keydown", e => {
   if (document.body.dataset.route !== "dig" || !G.S.box || !entry || e.metaKey || e.ctrlKey) return;
   if (/^[0-9.]$/.test(e.key)) pressKey(e.key);
   else if (e.key === "Backspace") { e.preventDefault(); pressKey("⌫"); }
-  else if (e.key === "Enter") { e.preventDefault(); if (G.S.box.h >= 3) { G.swapProblem(); entry = null; dig(); } else submit(); }
+  else if (e.key === "Enter") { e.preventDefault(); if (G.S.box.ok) nextStrike(); else if (G.S.box.h >= 3) { G.swapProblem(); entry = null; dig(); } else submit(); }
   else if (e.key === "Tab" && Object.keys(entry.f).length > 1) { e.preventDefault(); const ks = Object.keys(entry.f); entry.active = ks[(ks.indexOf(entry.active) + 1) % ks.length]; paintAnswer(); }
 });
 
@@ -532,4 +630,9 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
   }).catch(() => { /* offline support is a bonus */ });
 }
 
+// Cloud save: repaint the status chip when it changes; redraw the screen when newer progress arrives.
+Sync.listen(
+  () => { const c = $("#cloudchip"); if (c) c.textContent = cloudText(); const st = $("#cloudstate"); if (st) st.textContent = cloudText(); },
+  () => { entry = null; render(); });
 render();
+Sync.start();

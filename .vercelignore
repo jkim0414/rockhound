@@ -1,3 +1,5 @@
 tools
 README.md
 .claude
+.data
+node_modules

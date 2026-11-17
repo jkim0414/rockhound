@@ -1,10 +1,10 @@
 // Offline support.
 // App files: network first (so updates show up right away), falling back to the saved copy when offline.
 // Photos: cache first (they never change).
-const SHELL = "rockhound-shell-v2";
+const SHELL = "rockhound-shell-v3";
 const IMG = "rockhound-img-v1";
 const FILES = ["./", "index.html", "css/app.css", "manifest.webmanifest",
-  "js/app.js", "js/data.js", "js/lessons.js", "js/math.js", "js/shapes.js", "js/store.js", "js/credits.js",
+  "js/app.js", "js/data.js", "js/lessons.js", "js/math.js", "js/shapes.js", "js/store.js", "js/sync.js", "js/credits.js",
   "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", e => e.waitUntil(caches.open(SHELL).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));

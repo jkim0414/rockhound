@@ -4,23 +4,30 @@ A collect-them-all rock, mineral, and gem game where every specimen is earned wi
 Pick a mystery rock, land three hammer strikes (three math problems), and a real specimen
 goes into the collection with a field card to read.
 
-It is a plain static web app (no build step, no accounts, no tracking). All progress is
-saved on the device.
+It is a plain static web app with no build step and no tracking. Progress is saved on the
+device, and an optional cloud save carries it between devices.
 
 ## Live site
 
 (address removed)
 
 Hosted on Vercel from this repository. Every push to `main` redeploys it within a minute.
+`npm test` runs every check (math generators, full playthroughs, cloud save).
 Always install and play from that exact address: progress is stored per address.
 
 ## Run it on this computer
 
 ```bash
-python3 -m http.server 5173
+npm install
 ```
 
-Then open http://localhost:5173.
+```bash
+npm run dev
+```
+
+Then open http://localhost:5173. The dev server also runs the cloud-save API, keeping saves in a
+local `.data` folder (family key: `dev-family-key`). Run `node tools/dev_server.mjs 5173 5174` to get
+two addresses that behave like two separate devices.
 
 ## Put it on an iPad or phone
 
@@ -34,7 +41,43 @@ Once it is hosted:
 3. Open it from the home screen once while online. It saves all the photos in the background
    and then works with no internet.
 
-Progress lives in that device's browser storage. Clearing Safari website data erases it.
+Progress lives in that device's browser storage. Clearing Safari website data erases it, unless
+cloud save is on.
+
+## Cloud save (progress on every device)
+
+Each explorer can have a cloud save, which works as their account. It has no email and no password.
+
+**Turn it on** (once per explorer): Grown-ups → Cloud save → enter the **family key** → *Turn on cloud save*.
+The app shows a 16-character **cloud save code** such as `K7QM-2XPD-9TBR-4NHC`.
+
+**Use it on another device:** open the app there, tap *I already have a cloud save code* on the welcome
+screen, and type the code. Anything already found on that device is combined in.
+
+**After that it is automatic.** The app saves when a rock is opened, a chapter is finished, a Field Test
+ends, settings change, or the app is closed, and it checks for newer progress whenever it is opened.
+It keeps working offline and catches up later. If two devices changed while apart, nothing found is
+lost: collections, finished chapters and stars are combined, and math levels follow the device with
+more problems solved.
+
+Things to know:
+
+- The **code is the key**. Anyone who has it can load and change that collection, so treat it like a
+  password. It is shown under Grown-ups on any signed-in device. If every device is signed out and the
+  code is lost, that save cannot be recovered.
+- The **family key** only allows creating new cloud saves. It is the `FAMILY_KEY` environment variable
+  of the Vercel project; change it there (then redeploy) whenever you like.
+- *Sign out on this device* saves first, then clears the device back to the welcome screen. That is how
+  a second child uses the same device with their own code.
+- *Delete cloud save* erases the cloud copy for good; progress on the current device stays.
+- What is stored: the explorer's name, the Grown-ups PIN and settings, and game progress. Nothing else.
+
+How it is built: `api/sync.js` is one small serverless function; saves are single JSON files in a
+**private Vercel Blob store** (`rockhound-saves`). Codes are random and carry check characters signed
+with `SYNC_SECRET`, so made-up codes are rejected without touching storage. At most `MAX_ACCOUNTS`
+(default 12) cloud saves can exist. Vercel's free plan allows about 2,000 saves a month across everyone;
+normal play uses a few hundred. If that allowance ever runs out, the game keeps working on each device and
+syncing resumes later.
 
 ## How the game works
 
@@ -44,6 +87,8 @@ Progress lives in that device's browser storage. Clearing Safari website data er
 - **Mistakes cost nothing.** No timer, no lives, no lost progress. A miss shows a hint; a second miss
   shows the first steps of the solution; a third shows the full worked example and then offers a
   fresh problem of the same kind. Wrong multi-digit answers get specific feedback ("every digit is right except the tens place").
+- **Right answers stay on screen.** A solved problem stays put, marked correct, until he taps *Next strike*.
+- **Chapters are finished on purpose.** A Field Guide chapter counts as read only when he taps *I finished reading*.
 - **Field Test** (optional) quizzes him on his own specimens and awards stars. It never blocks anything.
 
 ## How the collection is organized
@@ -112,7 +157,8 @@ Home screen → **Grown-ups** (bottom of the page). Set a 4-digit PIN the first 
 | Specimens, facts, groups, expeditions | `js/data.js` |
 | Field Guide chapters | `js/lessons.js` |
 | Math skills and hints | `js/math.js` (then run `node tools/test_math.mjs`) |
-| Levelling rules, lucky-find odds | top of `js/store.js` |
+| Levelling rules, lucky-find odds, how two devices merge | `js/store.js` |
+| Cloud save | `api/sync.js`, `api/_lib/`, `js/sync.js` (then run `node tools/test_sync.mjs`) |
 | A photo | pin a file in `tools/photo_sources.json`, then `python3 tools/fetch_photos.py <id>` |
 
 `python3 tools/find_photo.py "search words" some/folder` lists Wikimedia Commons candidates and saves previews.

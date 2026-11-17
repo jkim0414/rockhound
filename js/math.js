@@ -521,7 +521,7 @@ skill("md_3d1r", "MD", 10, "3-digit ÷ 1-digit with a remainder", () => {
     hint: `Take away big chunks first: ${d} × 10 = ${d * 10}. How many of those fit?`, steps: [...chunkDivide(a, d).slice(0, -1), `${b(q)} full loads, ${b(r)} left over`] };
 });
 skill("md_paren", "MD", 10, "Parentheses first", () => {
-  const a = ri(3, 12), c = ri(2, 9), d = ri(3, 9), e = ri(2, 20);
+  const a = ri(3, 12), c = ri(2, 9), d = ri(3, 9), e = ri(2, Math.min(20, (a + c) * d - 1));
   return { q: eq(`(${a} + ${c}) × ${d} − ${e} = ?`), type: "num", ans: (a + c) * d - e,
     hint: "Do what is inside the parentheses first. Then multiply. Subtract last.",
     steps: [`Parentheses: ${a} + ${c} = ${a + c}`, `Multiply: ${a + c} × ${d} = ${(a + c) * d}`, `Subtract: ${(a + c) * d} − ${e} = ${b((a + c) * d - e)}`] };

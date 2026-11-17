@@ -63,6 +63,7 @@ input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible
 .hero { background: linear-gradient(160deg, #24344a, #1a2432); border: 1px solid var(--line); border-radius: 20px; padding: 18px; }
 .rankrow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 .rank { background: rgba(242, 178, 62, .16); color: var(--gold); padding: 4px 12px; border-radius: 99px; font-weight: 800; font-size: 15px; }
+.rankright { display: flex; align-items: center; gap: 10px; } .cloud { font-size: 13px; font-weight: 700; color: var(--mute); white-space: nowrap; }
 .exp { margin: 0; } .exp span { color: var(--mute); font-size: 15px; }
 .pickh { text-align: center; margin: 26px 0 4px; font-size: 24px; }
 .rocks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 640px; margin: 0 auto; }
@@ -136,6 +137,10 @@ table.machine th, table.machine td { border: 2px solid var(--paper-line); paddin
 .ansbox.sm { min-width: 84px; }
 .ansbox.active { border-color: var(--gold); box-shadow: 0 0 0 4px rgba(242, 178, 62, .28); }
 .hole { color: #c9bfa9; }
+span.ansbox { display: inline-grid; place-items: center; }
+.ansbox.ok { border-color: #22c55e; background: #f0fdf4; box-shadow: 0 0 0 4px rgba(34, 197, 94, .18); }
+.ansbox.chosen { min-width: 0; height: auto; min-height: 60px; padding: 8px 20px; font-size: 26px; }
+.ansbox.dim { opacity: .4; }
 .unit { font-size: 19px; font-weight: 700; color: var(--paper-mute); }
 .ansfrac { display: flex; flex-direction: column; align-items: center; gap: 6px; } .frbar { width: 104px; height: 4px; background: var(--paper-ink); border-radius: 2px; }
 .ansrow.rem label { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 14px; font-weight: 700; color: var(--paper-mute); }
@@ -149,12 +154,14 @@ table.machine th, table.machine td { border: 2px solid var(--paper-line); paddin
 .vc.p0 { color: var(--u); } .vc.p1 { color: var(--t); } .vc.p2 { color: var(--h); }
 .vc.va { border: 2.5px solid var(--paper-line); border-radius: 9px; background: #fff; width: calc(var(--w) - 4px); margin-left: 2px; margin-right: 2px; } .vc.va.gap { margin-right: 12px; }
 .vc.va.cur { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(242, 178, 62, .3); }
+.vc.va.ok { border-color: #22c55e; background: #f0fdf4; }
 .vcarry { height: 30px; width: calc(var(--w) - 14px); margin: 0 7px 2px; border: 2px dashed var(--paper-line); border-radius: 7px; background: none; font-size: 18px; font-weight: 800; padding: 0; } .vcarry.gap { margin-right: 17px; }
 .vline { height: 4px; background: var(--paper-ink); border-radius: 2px; margin: 4px 0 8px; }
 .vnote { text-align: center; font-size: 14px; color: var(--paper-mute); margin: 8px 0 0; }
 
 .feedback { min-height: 28px; text-align: center; margin-top: 12px; font-weight: 700; }
-.feedback.soft { color: #9a5b00; } .feedback.good { color: #15803d; font-size: 21px; }
+.feedback.soft { color: #9a5b00; } .feedback.good { color: #15803d; font-size: 22px; }
+.feedback.good span { display: block; font-size: 16px; font-weight: 600; margin-top: 2px; }
 .guide .feedback.soft { color: var(--gold); } .paper .feedback.soft { color: #9a5b00; }
 .help { margin-top: 10px; background: #fff7dc; border: 2px solid #f0d58a; border-radius: 14px; padding: 12px 14px; font-size: 17px; }
 .help ol { margin: 6px 0 8px; padding-left: 24px; } .help li { margin: 4px 0; } .help p { margin: 0 0 6px; } .help .sub { color: var(--paper-mute); }
@@ -166,6 +173,8 @@ table.machine th, table.machine td { border: 2px solid var(--paper-line); paddin
 .key.back { background: #3a2f3f; } .key.sm { height: 40px; width: 40px; font-size: 22px; }
 .pad .check { grid-column: 1 / -1; margin-top: 2px; }
 .pad.choices { grid-template-columns: 1fr 1fr; } .pad.done { display: none; }
+.pad.next { grid-template-columns: 1fr; } .pad.next .btn { animation: nudgein .35s ease-out; }
+@keyframes nudgein { from { transform: translateY(8px); opacity: 0; } }
 .btn.choice { background: #fff; color: var(--paper-ink); box-shadow: 0 3px 0 #b9ad95; font-size: 24px; min-height: 76px; border: 2px solid var(--paper-line); }
 .btn.choice.no { opacity: .4; } .btn.choice.yes { background: #bbf7d0; border-color: #22c55e; }
 
@@ -243,6 +252,8 @@ table.mohs td:first-child { width: 40px; text-align: center; font-weight: 800; b
 .diagram .n-ig rect { fill: #f8b4a0; } .diagram .n-sed rect { fill: #f3dc9a; } .diagram .n-met rect { fill: #b9c7f5; } .diagram .n-mag ellipse { fill: #f59e0b; }
 .diagram .dl { fill: none; stroke: #2b2620; stroke-width: 2.4; } .diagram .dl.thin { stroke-dasharray: 5 4; stroke-width: 1.8; } .diagram .dl-fill { fill: #2b2620; } .diagram .dt { font-size: 11px; fill: #5c5346; }
 .paper > .btn { margin-top: 16px; }
+.finish { margin-top: 26px; padding-top: 18px; border-top: 2px dashed var(--paper-line); text-align: center; }
+.finish .sub { margin-bottom: 10px; } .finished { color: #15803d; font-weight: 800; font-size: 19px; margin-bottom: 12px; }
 
 /* quiz + grown-ups */
 .quiz .qimg { max-height: 36vh; margin: 0 auto 12px; border-radius: 12px; } .quiz .q { font-size: 21px; font-weight: 700; text-align: center; }
@@ -252,6 +263,11 @@ table.mohs td:first-child { width: 40px; text-align: center; font-weight: 800; b
 .gtable.small { font-size: 14px; } .gtable small { color: var(--paper-mute); } td.lv { white-space: nowrap; text-align: center; } td.lv b { display: inline-block; min-width: 30px; font-size: 20px; }
 .settings { display: grid; gap: 12px; max-width: 360px; } .settings label { display: grid; gap: 4px; font-weight: 700; font-size: 15px; } .settings label.check { display: flex; align-items: center; gap: 10px; } .settings input[type=checkbox] { width: 24px; height: 24px; min-height: 0; }
 .paper input, .paper select { background: #fff; color: var(--paper-ink); border-color: var(--paper-line); }
+.codebox { font: 800 26px/1.2 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: 1px; background: #fff; border: 2px dashed var(--paper-line); border-radius: 14px; padding: 14px; text-align: center; margin: 10px 0; user-select: all; -webkit-user-select: all; overflow-wrap: anywhere; }
+.codein { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+.row.left { justify-content: flex-start; margin-top: 10px; }
+#joinform:not(.settings) { display: grid; gap: 12px; max-width: 340px; margin: 14px auto 0; } #joinform label { font-weight: 700; }
+.welcome .foot { margin-top: 22px; } .welcome .foot a { color: var(--teal); font-size: 16px; }
 #pinform { display: grid; gap: 12px; justify-items: center; } #pin { text-align: center; font-size: 26px; letter-spacing: 8px; width: 170px; }
 
 @media (min-width: 820px) {
@@ -265,15 +281,21 @@ table.mohs td:first-child { width: 40px; text-align: center; font-weight: 800; b
 @media (max-width: 400px) { .vert { --w: 36px; font-size: 32px; } .vop { width: 28px; } .stcol { grid-template-columns: repeat(5, 26px); } .stamp { width: 26px; height: 26px; } .ansbox { min-width: 120px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
 
-/* phones: keep the keypad docked at the bottom so it is always reachable */
+/* Phones and tablets held upright: the screen is a fixed column. The problem card
+   scrolls inside its own space and the keypad sits below it, so the keypad can
+   never cover part of the problem. */
 @media (max-width: 819px) {
-  body[data-route="dig"] #view { padding-top: 8px; padding-bottom: 0; }
-  .digbody { gap: 8px; }
+  body[data-route="dig"] { overflow: hidden; }
+  body[data-route="dig"] #view { height: calc(100dvh - var(--safe-t) - var(--safe-b)); padding: 8px 16px 10px; display: flex; flex-direction: column; }
+  .dig { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .digbody { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .rockwrap { flex: none; }
   .rockwrap .mrock { width: 84px; }
-  .problem { padding: 14px; }
+  .problem { flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px; }
   .feedback { min-height: 0; margin-top: 8px; }
-  #pad { position: sticky; bottom: 0; background: linear-gradient(transparent, var(--bg) 14px); margin: 0 -16px; padding: 14px 16px calc(8px + var(--safe-b)); }
+  #pad { flex: none; margin-top: auto; }
   .key { height: 50px; font-size: 24px; }
   .pad .check { min-height: 52px; }
   .btn.choice { min-height: 64px; }
 }
+@media (max-width: 819px) and (min-height: 900px) { .rockwrap .mrock { width: 120px; } .key { height: 60px; } }
