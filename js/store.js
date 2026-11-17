@@ -3,23 +3,76 @@ import { SPECIMENS, STAGES, FINAL_RANK } from "./data.js";
 import { STRAND_IDS, MAX_LEVEL, makeProblem, regenerate } from "./math.js";
 
 const KEY = "rockhound.v1";
-export const MASTERY_GOAL = 4;      // first-try solves at a level before moving up
 const LUCKY_CHANCE = 0.12;          // chance a rock holds a specimen from the next expedition
 const REVIEW_CHANCE = 0.25;         // chance a problem is review from an easier level
+const SETTLING_REVIEW = 0.5;        // ...and while a new level is still settling in
+const RULES = 2;                    // version of the levelling rules a save was last played under
+
+// How quickly the math climbs. Chosen under Grown-ups.
+//   goal   = first-try solves needed at a level (each miss takes some away)
+//   perDay = how many strands may move up a level on one calendar day
+export const PACES = {
+  gentle: { name: "Gentle", goal: 8, perDay: 1, about: "One strand may move up a level per day, after 8 first-try solves." },
+  steady: { name: "Steady", goal: 6, perDay: 2, about: "Two strands may move up per day, after 6 first-try solves." },
+  quick: { name: "Quick", goal: 4, perDay: 99, about: "No daily limit. A strand moves up after 4 first-try solves." },
+};
 
 const fresh = () => ({
   v: 1, name: "", pin: "", collected: {}, order: [],
   math: Object.fromEntries(STRAND_IDS.map(s => [s, { lvl: 1, m: 0, bad: 0, last: "" }])),
   stats: {}, log: [], rot: [], box: null, last: null,
-  day: { d: "", n: 0 }, set: { limit: 0, sound: true },
-  read: {}, quiz: {}, solved: 0,
+  day: { d: "", n: 0 }, ups: { d: "", n: 0 }, set: { limit: 0, sound: true, pace: "gentle" },
+  read: {}, quiz: {}, solved: 0, rules: RULES,
 });
+
+let clock = () => new Date();       // tests swap this to move through days
+export const setClock = fn => { clock = fn; };
+const dayOf = date => date.toLocaleDateString("en-CA");
+const today = () => dayOf(clock());
+
+// The levelling rule itself, shared by live play and by recalibration.
+// First try: +1. Two tries: -1. Needed the worked steps: -2. Misses in a row add up, and
+// three points of trouble in a row move the strand back down a level.
+function settle(m, tries, { goal, cap, mayRise }) {
+  if (tries === 1) { m.m = Math.min(goal, m.m + 1); m.bad = 0; }
+  else { const w = tries >= 3 ? 2 : 1; m.m = Math.max(0, m.m - w); m.bad += w; }
+  if (m.bad >= 3 && m.lvl > 1) { m.lvl--; m.m = Math.floor(goal / 2); m.bad = 0; return "down"; }
+  if (tries === 1 && m.m >= goal && m.lvl < cap && mayRise()) { m.lvl++; m.m = 0; m.bad = 0; return "up"; }
+  return null;
+}
+
+// One-time fix for saves played under the first, too-fast rules: replay the whole history
+// under the current rules to find where each strand should really be. Levels only ever come
+// down here. If the history is incomplete, levels are left alone.
+function recalibrate(s) {
+  const pace = PACES[s.set.pace] || PACES.gentle;
+  if (!s.log.length || s.solved > s.log.length) return;
+  const sim = Object.fromEntries(STRAND_IDS.map(id => [id, { lvl: 1, m: 0, bad: 0, last: s.math[id].last || "" }]));
+  const rises = {};
+  for (const e of [...s.log].reverse()) {            // oldest first
+    const m = sim[e.s];
+    if (!m || e.l !== m.lvl) continue;
+    const day = dayOf(new Date(e.t));
+    if (settle(m, e.n, { goal: pace.goal, cap: MAX_LEVEL, mayRise: () => (rises[day] || 0) < pace.perDay }) === "up") rises[day] = (rises[day] || 0) + 1;
+  }
+  for (const id of STRAND_IDS) if (sim[id].lvl < s.math[id].lvl) s.math[id] = sim[id];
+  s.ups = { d: today(), n: rises[today()] || 0 };
+  const b = s.box;                                   // a rock in progress: swap unsolved problems that are now too hard
+  if (b && Array.isArray(b.probs)) b.probs.forEach((p, i) => {
+    const solved = i < b.i || (i === b.i && b.ok);
+    if (solved || p.level <= s.math[p.strand].lvl) return;
+    b.probs[i] = makeProblem(p.strand, s.math[p.strand].lvl, p.skill);
+    if (i === b.i) { b.tries = 0; b.miss = 0; b.h = 0; }
+  });
+}
 
 // Fill in anything missing so older or partial saves still load.
 export function normalize(raw) {
   const base = fresh();
   if (!raw || raw.v !== 1) return base;
-  return { ...base, ...raw, math: { ...base.math, ...raw.math }, set: { ...base.set, ...raw.set } };
+  const out = { ...base, ...raw, math: { ...base.math, ...raw.math }, set: { ...base.set, ...raw.set }, ups: { ...base.ups, ...raw.ups } };
+  if ((raw.rules || 1) < RULES) { recalibrate(out); out.rules = RULES; }
+  return out;
 }
 function load() {
   try { return normalize(JSON.parse(localStorage.getItem(KEY))); } catch { return fresh(); }
@@ -58,8 +111,6 @@ export function mergeStates(x, y) {
 const ri = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = ri(0, i); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-const today = () => new Date().toLocaleDateString("en-CA");
-
 export const has = id => !!S.collected[id];
 export const countFound = () => Object.keys(S.collected).length;
 export const missingIn = st => SPECIMENS.filter(s => s.st === st && !has(s.id));
@@ -69,6 +120,9 @@ export const sizeOf = st => SPECIMENS.filter(s => s.st === st).length;
 export function stageNow() { for (const st of STAGES) if (missingIn(st.n).length) return st.n; return STAGES.length + 1; }
 export const rankName = () => { const st = stageNow(); return st > STAGES.length ? FINAL_RANK : STAGES[st - 1].rank; };
 export const levelCap = () => Math.min(MAX_LEVEL, stageNow() + 2);
+export const pace = () => PACES[S.set.pace] || PACES.gentle;
+export const masteryGoal = () => pace().goal;
+export function risesToday() { if (S.ups.d !== today()) S.ups = { d: today(), n: 0 }; return S.ups.n; }
 
 export function boxesToday() { if (S.day.d !== today()) S.day = { d: today(), n: 0 }; return S.day.n; }
 export const canDig = () => !S.set.limit || boxesToday() < S.set.limit;
@@ -93,7 +147,8 @@ export function startBox(variant) {
   const probs = takeStrands(3).map(sid => {
     const m = S.math[sid];
     let lvl = m.lvl;
-    if (lvl > 1 && Math.random() < REVIEW_CHANCE) lvl -= ri(1, Math.min(2, lvl - 1));
+    const settling = m.m < masteryGoal() * 0.4;      // a level he only just reached: mix in more of what he knows
+    if (lvl > 1 && Math.random() < (settling ? SETTLING_REVIEW : REVIEW_CHANCE)) lvl -= ri(1, Math.min(2, lvl - 1));
     const p = makeProblem(sid, lvl, m.last);
     m.last = p.skill;
     return p;
@@ -106,26 +161,24 @@ export function startBox(variant) {
 export function swapProblem() { const b = S.box; b.probs[b.i] = regenerate(b.probs[b.i]); b.h = 0; b.miss = 0; save(); }
 
 // Record a solved problem. Only problems at the strand's current level move mastery.
-// Returns "up" / "down" when the strand's level changes.
+// Returns "up" / "down" when the strand's level changes. A strand moves up slowly and on
+// purpose: plenty of first-try solves, and only so many strands per day (see PACES).
 export function recordSolve(p, tries) {
   const st = S.stats[p.skill] || (S.stats[p.skill] = { a: 0, f: 0, t: 0 });
   st.a++; st.t += tries; if (tries === 1) st.f++;
-  S.log.unshift({ t: Date.now(), k: p.skill, s: p.strand, l: p.level, n: tries });
+  S.log.unshift({ t: clock().getTime(), k: p.skill, s: p.strand, l: p.level, n: tries });
   S.log.length = Math.min(S.log.length, 80);
   S.solved++;
   const m = S.math[p.strand];
   if (p.level !== m.lvl) return null;
-  if (tries === 1) { m.m++; m.bad = 0; }
-  else if (tries >= 3) { m.m = Math.max(0, m.m - 1); m.bad++; }
-  if (m.m >= MASTERY_GOAL && m.lvl < levelCap()) { m.lvl++; m.m = 0; m.bad = 0; return "up"; }
-  if (m.bad >= 2 && m.lvl > 1) { m.lvl--; m.m = 2; m.bad = 0; return "down"; }
-  m.m = Math.min(m.m, MASTERY_GOAL);
-  return null;
+  const moved = settle(m, tries, { goal: masteryGoal(), cap: levelCap(), mayRise: () => risesToday() < pace().perDay });
+  if (moved === "up") S.ups.n++;
+  return moved;
 }
 
 export function award() {
   const b = S.box, before = stageNow();
-  S.collected[b.target] = Date.now();
+  S.collected[b.target] = clock().getTime();
   S.order.unshift(b.target);
   boxesToday(); S.day.n++;
   const after = stageNow();

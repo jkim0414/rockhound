@@ -133,11 +133,23 @@ Five strands, ten levels each. All strands start at level 1.
 
 ### How levels move
 
-- **Up:** four first-try solves at the current level.
-- **Down:** two problems in a row that needed the full worked example.
-- **Cap:** automatic levelling cannot pass *expedition + 2*, so difficulty climbs with the collection
-  (level 10 becomes reachable at expedition 8).
-- About one problem in four is review from one or two levels down. Review never changes the level.
+Each strand moves on its own, slowly and on purpose. The pace is chosen under Grown-ups:
+
+| Pace | First-try solves needed at a level | Strands that may move up per day | A child who gets everything right finishes the collection around |
+|---|---|---|---|
+| **Gentle** (default) | 8 | 1 | level 5 |
+| Steady | 6 | 2 | level 6 to 8 |
+| Quick | 4 | no limit | level 10 |
+
+- **Up:** a first-try solve at the current level fills one dot. Solving on the second try empties one; needing the
+  worked steps empties two. When the dots are full the strand may move up, if the day's allowance is not used.
+  The daily allowance stops everything getting harder in one sitting.
+- **Down:** trouble in a row moves a strand back a level quickly: for example one two-try problem followed by one
+  that needed the worked steps. A first-try solve in between clears the count.
+- **Settling in:** a level he has only just reached is mixed half-and-half with easier review. After that about one
+  problem in four is review. Review never changes the level.
+- **Cap:** automatic levelling cannot pass *expedition + 2*.
+- **By hand:** the − and + buttons under Grown-ups place a strand anywhere, at any time.
 
 Place-value colors follow Montessori materials: units green, tens blue, hundreds red. Column problems are
 answered units-first, with tap-to-mark exchange boxes above each column.
@@ -147,6 +159,7 @@ answered units-first, with tap-to-mark exchange boxes above each column.
 Home screen → **Grown-ups** (bottom of the page). Set a 4-digit PIN the first time. There you can:
 
 - see each strand's level, mastery dots, first-try rate, and the last 15 problems
+- choose how quickly the math gets harder (Gentle, Steady, Quick)
 - move a strand's level up or down by hand
 - cap mystery rocks per day, change the name, turn sounds off, or reset progress
 
