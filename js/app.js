@@ -319,21 +319,27 @@ function tile(s) {
     ? `<button class="tile got ${rar(s)}" data-go="card/${s.id}"><img loading="lazy" src="${thumb(s.id)}" alt=""><span class="tnum">#${pad3(s.num)}</span><span class="tname">${s.n}</span>${stars(s.id)}</button>`
     : `<button class="tile ${rar(s)}" data-act="locked" data-id="${s.id}" aria-label="Not found yet"><span class="tq">?</span><span class="tnum">#${pad3(s.num)}</span></button>`;
 }
-const grid = list => `<div class="grid">${list.map(tile).join("")}</div>`;
+// "Found" view: hide everything not collected yet (remembered on this device).
+let foundOnly = false;
+try { foundOnly = localStorage.getItem("rockhound.foundonly") === "1"; } catch { /* default: show everything */ }
+const grid = list => `<div class="grid">${(foundOnly ? list.filter(s => G.has(s.id)) : list).map(tile).join("")}</div>`;
 const tally = list => `<span class="tally">${list.filter(s => G.has(s.id)).length}/${list.length}</span>`;
+const worth = list => !foundOnly || list.some(s => G.has(s.id));   // skip sections with nothing found in them
 
 function dex() {
   let body = "";
   if (lens === "family") {
     for (const k of KINGDOMS) {
       const ks = SPECIMENS.filter(s => kingdomOf(s) === k.id);
+      if (!worth(ks)) continue;
       body += `<div class="kingdom k-${k.id}"><h2>${k.icon} ${k.name} ${tally(ks)}</h2><p>${k.rule}</p><p class="sub">${k.sort}</p></div>`;
       let lastCls = "";
       for (const g of GROUPS.filter(g => g.k === k.id)) {
-        const multi = GROUPS.filter(x => x.cls === g.cls).length > 1;
-        if (multi && g.cls !== lastCls) body += `<h3 class="cls">${g.cls} ${tally(SPECIMENS.filter(s => GROUP_BY_ID[s.g].cls === g.cls))}</h3>`;
+        const multi = GROUPS.filter(x => x.cls === g.cls).length > 1, inCls = SPECIMENS.filter(s => GROUP_BY_ID[s.g].cls === g.cls);
+        if (multi && g.cls !== lastCls && worth(inCls)) body += `<h3 class="cls">${g.cls} ${tally(inCls)}</h3>`;
         lastCls = g.cls;
         const list = SPECIMENS.filter(s => s.g === g.id);
+        if (!worth(list)) continue;
         body += `<div class="group"><h4>${g.name}${g.sci ? ` <i>(${g.sci})</i>` : ""} ${tally(list)}</h4><p class="sub">${g.rule}</p>${grid(list)}</div>`;
       }
     }
@@ -342,27 +348,31 @@ function dex() {
     body += `<div class="kingdom"><h2>The Mohs hardness ladder</h2><p>A harder mineral scratches a softer one. Each step is named after its reference mineral.</p></div>`;
     for (let h = 10; h >= 1; h--) {
       const list = SPECIMENS.filter(s => s.h && Math.floor(hardnessMid(s)) === h).sort((a, c) => hardnessMid(c) - hardnessMid(a));
-      if (list.length) body += `<div class="group"><h4><span class="hnum">${h}</span> As hard as ${ref[h].toLowerCase()} ${tally(list)}</h4>${grid(list)}</div>`;
+      if (list.length && worth(list)) body += `<div class="group"><h4><span class="hnum">${h}</span> As hard as ${ref[h].toLowerCase()} ${tally(list)}</h4>${grid(list)}</div>`;
     }
     const rest = SPECIMENS.filter(s => !s.h);
-    body += `<div class="group"><h4>Rocks and space rocks ${tally(rest)}</h4><p class="sub">A rock is a mixture, so it has no single hardness. Each mineral grain inside has its own.</p>${grid(rest)}</div>`;
+    if (worth(rest)) body += `<div class="group"><h4>Rocks and space rocks ${tally(rest)}</h4><p class="sub">A rock is a mixture, so it has no single hardness. Each mineral grain inside has its own.</p>${grid(rest)}</div>`;
   } else if (lens === "crystal") {
     body += `<div class="kingdom"><h2>The seven crystal systems</h2><p>Every mineral's atoms stack in exactly one of seven patterns.</p></div>`;
     for (const c of CRYSTAL_SYSTEMS) {
       const list = SPECIMENS.filter(s => s.cs === c.id);
-      body += `<div class="group"><h4 class="withsvg">${crystalSVG(c.id, 44)} ${c.name} ${tally(list)}</h4><p class="sub">${c.note}</p>${grid(list)}</div>`;
+      if (worth(list)) body += `<div class="group"><h4 class="withsvg">${crystalSVG(c.id, 44)} ${c.name} ${tally(list)}</h4><p class="sub">${c.note}</p>${grid(list)}</div>`;
     }
     const none = SPECIMENS.filter(s => s.cs === "none"), rest = SPECIMENS.filter(s => !s.cs);
-    body += `<div class="group"><h4>No crystal pattern ${tally(none)}</h4><p class="sub">Mineraloids: their atoms are jumbled, or they were made by living things.</p>${grid(none)}</div>
-      <div class="group"><h4>Rocks and space rocks ${tally(rest)}</h4><p class="sub">Mixtures of many crystals of different kinds.</p>${grid(rest)}</div>`;
+    if (worth(none)) body += `<div class="group"><h4>No crystal pattern ${tally(none)}</h4><p class="sub">Mineraloids: their atoms are jumbled, or they were made by living things.</p>${grid(none)}</div>`;
+    if (worth(rest)) body += `<div class="group"><h4>Rocks and space rocks ${tally(rest)}</h4><p class="sub">Mixtures of many crystals of different kinds.</p>${grid(rest)}</div>`;
   } else {
     body += `<div class="kingdom"><h2>💎 Gems</h2><p>A gem is not a separate kind of thing. It is any specimen beautiful, tough, and rare enough to wear. Most gems are minerals — but not all!</p></div>`;
     for (const k of KINGDOMS) {
       const list = SPECIMENS.filter(s => s.gem && kingdomOf(s) === k.id);
-      if (list.length) body += `<div class="group"><h4>Gems that are ${k.name.toLowerCase()} ${tally(list)}</h4>${grid(list)}</div>`;
+      if (list.length && worth(list)) body += `<div class="group"><h4>Gems that are ${k.name.toLowerCase()} ${tally(list)}</h4>${grid(list)}</div>`;
     }
   }
-  view.innerHTML = `<section class="dex"><div class="dexhead"><h1>My Collection</h1><span class="count">${G.countFound()} / ${TOTAL}</span></div>
+  const have = G.countFound();
+  if (foundOnly && lens === "gems" && !SPECIMENS.some(s => s.gem && G.has(s.id))) body += `<div class="panel center"><p>No gems found yet. They are hiding in later expeditions.</p></div>`;
+  if (foundOnly && !have) body = `<div class="panel center"><p>Nothing found yet. Crack a mystery rock to start your collection!</p><button class="btn" data-go="home">Go to the dig</button></div>`;
+  view.innerHTML = `<section class="dex"><div class="dexhead"><h1>My Collection</h1><span class="count">${have} / ${TOTAL}</span></div>
+    <div class="showrow" role="group" aria-label="What to show"><button class="${foundOnly ? "" : "on"}" data-act="show" data-f="0">Everything</button><button class="${foundOnly ? "on" : ""}" data-act="show" data-f="1">Only what I've found (${have})</button></div>
     <div class="lens">${LENSES.map(([id, n]) => `<button class="${lens === id ? "on" : ""}" data-act="lens" data-l="${id}">${n}</button>`).join("")}</div>${body}</section>`;
 }
 
@@ -561,6 +571,7 @@ document.addEventListener("click", e => {
       return paintBadge();
     }
     case "lens": lens = d.l; return dex();
+    case "show": foundOnly = d.f === "1"; try { localStorage.setItem("rockhound.foundonly", foundOnly ? "1" : "0"); } catch { /* fine */ } return dex();
     case "locked": { const s = BY_ID[d.id]; return toast(`#${pad3(s.num)} is still hidden. Look for it in Expedition ${s.st}: ${stageOf(s.st).name}.`); }
     case "quizstart": buildQuiz(); return quiz();
     case "quizpick": return quizPick(Number(d.i), a);

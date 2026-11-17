@@ -106,6 +106,7 @@ Every specimen has exactly one home, decided by one question at a time:
 (shown as a badge, with gem varieties such as ruby linked to their species, corundum). A crystal is the
 shape a mineral grows in (shown as its crystal system). The collection can be re-sorted by
 **Hardness**, **Crystal shape**, or **Gems** using the lens buttons.
+A switch above them shows **Everything** (with silhouettes for what is still hidden) or **Only what I've found**.
 
 ## The math ladder
 
