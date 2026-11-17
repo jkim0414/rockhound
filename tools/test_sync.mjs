@@ -41,6 +41,22 @@ await ok("push from a device that is behind gets the latest back (409)", async (
   const r = await call({ op: "push", code, etag: made.data.etag, state: state({ solved: 4 }) });
   assert.equal(r.status, 409); assert.equal(r.data.state.solved, 6); assert.equal(r.data.etag, p1.data.etag);
 });
+await ok("a second device can save after loading the save with its code", async () => {
+  const loaded = await call({ op: "pull", code });
+  const r = await call({ op: "push", code, etag: loaded.data.etag, state: state({ solved: 7 }) });
+  assert.equal(r.status, 200); assert.equal((await call({ op: "pull", code })).data.state.solved, 7);
+  p1.data.etag = r.data.etag;
+});
+await ok("a device behind is handed a version it can then save with", async () => {
+  const behind = await call({ op: "push", code, etag: made.data.etag, state: state({ solved: 8 }) });
+  assert.equal(behind.status, 409);
+  const r = await call({ op: "push", code, etag: behind.data.etag, state: state({ solved: 8 }) });
+  assert.equal(r.status, 200); p1.data.etag = r.data.etag;
+});
+await ok("a device still holding a weak version (W/…) from before the fix can save", async () => {
+  const r = await call({ op: "push", code, etag: "W/" + p1.data.etag, state: state({ solved: 9 }) });
+  assert.equal(r.status, 200); p1.data.etag = r.data.etag;
+});
 await ok("push without a version is treated as behind", async () => assert.equal((await call({ op: "push", code, state: state() })).status, 409));
 await ok("push rejects an oversized save", async () => assert.equal((await call({ op: "push", code, etag: p1.data.etag, state: state({ junk: "x".repeat(200_000) }) })).status, 400));
 await ok("the number of cloud saves is capped", async () => {

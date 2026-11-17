@@ -40,14 +40,15 @@ const blob = {
 const dir = () => process.env.SYNC_DATA_DIR || path.resolve(".data");
 const etagOf = text => `"${createHash("sha1").update(text).digest("hex")}"`;
 const file = {
+  // Behaves like Blob on purpose: reading hands back a weak ETag, writing only accepts the strong one.
   async read(key) {
-    try { const text = await readFile(path.join(dir(), key), "utf8"); return { text, etag: etagOf(text) }; }
+    try { const text = await readFile(path.join(dir(), key), "utf8"); return { text, etag: "W/" + etagOf(text) }; }
     catch { return null; }
   },
   async write(key, text, { ifMatch, create } = {}) {
     const cur = await file.read(key);
     if (create && cur) throw new Conflict();
-    if (ifMatch && (!cur || cur.etag !== ifMatch)) throw new Conflict();
+    if (ifMatch && (!cur || etagOf(cur.text) !== ifMatch)) throw new Conflict();
     const full = path.join(dir(), key);
     await mkdir(path.dirname(full), { recursive: true });
     await writeFile(full, text);
@@ -65,7 +66,14 @@ function pick() {
   if (onVercel()) throw Object.assign(new Error("Blob storage is not connected to this project"), { status: 503 });
   return file;
 }
-export const read = key => pick().read(key);
-export const write = (key, text, opts) => pick().write(key, text, opts);
+// Reading a save can hand back a weak ETag (W/"…": the CDN adds the W/ when it compresses the reply),
+// but a conditional write only matches the strong form. Left alone, a device that loaded a save could
+// never save to it again. So every ETag is made strong on the way out and on the way in.
+const strong = etag => (etag ? String(etag).replace(/^W\//, "") : etag);
+export const read = async key => { const rec = await pick().read(key); return rec && { ...rec, etag: strong(rec.etag) }; };
+export const write = async (key, text, opts = {}) => {
+  const done = await pick().write(key, text, { ...opts, ifMatch: strong(opts.ifMatch) });
+  return { etag: strong(done.etag) };
+};
 export const remove = key => pick().remove(key);
 export const countFolders = prefix => pick().countFolders(prefix);
