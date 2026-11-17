@@ -91,7 +91,8 @@ export const hasProgress = () => S.solved > 0 || Object.keys(S.collected).length
 
 // Combine two copies of the same explorer that changed on different devices.
 // Nothing found is ever lost: collections, finished chapters and stars are combined.
-// Math levels and settings come from the copy with more problems solved.
+// Math levels and settings come from the copy with more problems solved, unless the other
+// copy holds a more recent level change or settings change.
 export function mergeStates(x, y) {
   x = normalize(x); y = normalize(y);
   const [base, other] = y.solved > x.solved ? [y, x] : [x, y];
@@ -103,6 +104,9 @@ export function mergeStates(x, y) {
   for (const [k, v] of Object.entries(other.stats)) if (!out.stats[k] || v.a > out.stats[k].a) out.stats[k] = v;
   const seen = new Set(out.log.map(l => l.t + l.k));
   out.log = out.log.concat(other.log.filter(l => !seen.has(l.t + l.k))).sort((p, q) => q.t - p.t).slice(0, 80);
+  // A level placed more recently (by a grown-up or by play) and newer settings win, whichever device they came from.
+  for (const id of STRAND_IDS) if ((other.math[id].at || 0) > (out.math[id].at || 0)) out.math[id] = { ...other.math[id] };
+  if ((other.set.at || 0) > (out.set.at || 0)) { out.set = { ...other.set }; out.name = other.name || out.name; }
   if (out.box && out.collected[out.box.target]) out.box = null;
   out.day = x.day.d === y.day.d ? { d: x.day.d, n: Math.max(x.day.n, y.day.n) } : (x.day.d > y.day.d ? x.day : y.day);
   out.name = base.name || other.name; out.pin = base.pin || other.pin;
@@ -174,6 +178,7 @@ export function recordSolve(p, tries) {
   if (p.level !== m.lvl) return null;
   const moved = settle(m, tries, { goal: masteryGoal(), cap: levelCap(), mayRise: () => risesToday() < pace().perDay });
   if (moved === "up") S.ups.n++;
+  if (moved) m.at = clock().getTime();
   return moved;
 }
 

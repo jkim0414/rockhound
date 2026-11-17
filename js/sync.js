@@ -28,6 +28,20 @@ async function call(body, keepalive = false) {
   } catch { return { status: 0, data: {} }; }   // offline
 }
 
+// Compare two saves regardless of key order.
+const stable = v => JSON.stringify(v, (k, x) => x && typeof x === "object" && !Array.isArray(x)
+  ? Object.fromEntries(Object.keys(x).sort().map(key => [key, x[key]])) : x);
+// Fold a cloud copy into this device. Returns true only if something here actually changed.
+// (Often nothing does: the "newer" cloud copy is just this device's own earlier save whose
+// reply was lost when the app went into the background.)
+function absorb(remote, merge) {
+  const before = stable(G.S);
+  const next = merge ? G.mergeStates(G.S, remote) : G.normalize(remote);
+  if (stable(next) === before) return false;
+  G.adopt(next);
+  return true;
+}
+
 // Every local save lands here.
 function touched() {
   if (!isOn()) return;
@@ -55,10 +69,10 @@ export async function push({ keepalive = false, retry = true } = {}) {
     setStatus(info.dirty ? "pending" : "saved");
     return !info.dirty;
   }
-  if (r.status === 409 && r.data.state) {       // another device saved first: combine, then send again
-    G.adopt(G.mergeStates(G.S, r.data.state));
+  if (r.status === 409 && r.data.state) {       // the cloud copy is ahead of what this device last saw: combine, then send again
+    const changed = absorb(r.data.state, true);
     info.etag = r.data.etag; info.dirty = true; persist();
-    onAdopt();
+    if (changed) onAdopt();
     return retry ? push({ retry: false }) : false;
   }
   if (r.status === 404) { setStatus("gone"); return false; }   // the cloud save was deleted
@@ -75,10 +89,11 @@ export async function pull(force = false) {
   if (r.status === 404) return setStatus("gone");
   if (r.status !== 200) return;
   if (r.data.etag === info.etag) { if (info.dirty) push(); return; }
-  if (info.dirty) { G.adopt(G.mergeStates(G.S, r.data.state)); info.etag = r.data.etag; persist(); onAdopt(); return push(); }
-  G.adopt(r.data.state);
+  if (info.dirty) { const changed = absorb(r.data.state, true); info.etag = r.data.etag; persist(); if (changed) onAdopt(); return push(); }
+  const changed = absorb(r.data.state, false);
   info.etag = r.data.etag; info.savedAt = Date.now(); persist();
-  setStatus("saved"); onAdopt();
+  setStatus("saved");
+  if (changed) onAdopt();
 }
 
 // Start a cloud save from what is on this device. Returns "" on success or an error word.

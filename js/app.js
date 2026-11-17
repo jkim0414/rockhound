@@ -57,18 +57,18 @@ function toast(msg) {
 
 // ───────── router
 const routes = { home, dig, found, dex, card, guide, quiz, grown, credits };
-function render() {
+function render(keepScroll = false) {
   const [name, arg] = (location.hash.slice(1) || "home").split("/");
   const fn = routes[name] || home;
   document.body.dataset.route = routes[name] ? name : "home";
   fn(arg);
   document.querySelectorAll("nav.tabs a").forEach(a => a.classList.toggle("on", a.dataset.tab === document.body.dataset.route || (a.dataset.tab === "dex" && name === "card") || (a.dataset.tab === "home" && (name === "dig" || name === "found"))));
   paintBadge();
-  if (name !== "dig") window.scrollTo(0, 0);
+  if (name !== "dig" && !keepScroll) window.scrollTo(0, 0);
 }
 function paintBadge() { const n = unreadLessons(), badge = $("#guidebadge"); badge.textContent = n || ""; badge.hidden = !n; }
 function go(r) { if (location.hash.slice(1) === r) render(); else location.hash = r; }
-window.addEventListener("hashchange", render);
+window.addEventListener("hashchange", () => render());
 
 // ───────── cloud save helpers
 const CLOUD_TEXT = { saved: "☁️ Saved", pending: "☁️ Not saved yet", saving: "☁️ Saving…", gone: "☁️ Cloud save missing", off: "" };
@@ -218,7 +218,11 @@ function dig() {
       </div>
       <div id="pad">${padHTML(p, b)}</div>
     </div></section>`;
+  shownDig = digSig();
 }
+// What the dig screen is currently showing, so a cloud update only redraws it if the rock itself changed.
+let shownDig = "";
+function digSig() { const b = G.S.box; if (!b) return ""; const p = b.probs[b.i] || {}; return [b.target, b.i, b.ok ? 1 : 0, p.skill, JSON.stringify(p.ans)].join("|"); }
 const paintAnswer = () => { $("#answer").innerHTML = answerHTML(cur()); };
 const say = (html, cls = "") => { const f = $("#feedback"); if (f) { f.className = "feedback " + cls; f.innerHTML = html; } };
 // Keep the newest message in view inside the problem card.
@@ -576,7 +580,7 @@ document.addEventListener("click", e => {
     case "quizstart": buildQuiz(); return quiz();
     case "quizpick": return quizPick(Number(d.i), a);
     case "quiznext": qz.i++; qz.missed = false; qz.answered = false; if (qz.i >= qz.qs.length) Sync.checkpoint(); return quiz();
-    case "lvl": { const m = G.S.math[d.s]; m.lvl = Math.max(1, Math.min(MAX_LEVEL, m.lvl + Number(d.d))); m.m = 0; m.bad = 0; G.save(); Sync.checkpoint(4000); return grown(); }
+    case "lvl": { const m = G.S.math[d.s]; m.lvl = Math.max(1, Math.min(MAX_LEVEL, m.lvl + Number(d.d))); m.m = 0; m.bad = 0; m.at = Date.now(); G.save(); Sync.checkpoint(4000); return grown(); }
     case "reset": if (confirm("Erase the whole collection and all math history on this device?")) { G.resetAll(); Sync.checkpoint(); entry = null; qz = null; toast("Progress reset."); go("home"); } return;
     case "showjoin": { const f = $("#joinform"); f.hidden = false; a.parentElement.hidden = true; $("#joincode").focus(); return; }
     case "syncnow": { const msg = $("#cloudmsg"); msg.textContent = "Saving…"; G.save(); Sync.push().then(ok => { if ($("#cloudsec")) { $("#cloudsec").innerHTML = cloudSection(); $("#cloudmsg").textContent = ok ? "Saved." : "Could not reach the cloud. It will keep trying."; } }); return; }
@@ -619,14 +623,14 @@ document.addEventListener("submit", e => {
     grown();
   }
   if (e.target.id === "setform") {
-    G.S.name = $("#setname").value.trim() || G.S.name; G.S.set.limit = Number($("#setlimit").value); G.S.set.sound = $("#setsound").checked;
+    G.S.name = $("#setname").value.trim() || G.S.name; G.S.set.limit = Number($("#setlimit").value); G.S.set.sound = $("#setsound").checked; G.S.set.at = Date.now();
     G.save(); Sync.checkpoint(); toast("Settings saved.");
   }
 });
 
 document.addEventListener("change", e => {
   if (e.target.id !== "setpace") return;
-  G.S.set.pace = e.target.value;
+  G.S.set.pace = e.target.value; G.S.set.at = Date.now();
   for (const id of STRAND_IDS) G.S.math[id].m = Math.min(G.S.math[id].m, G.masteryGoal());
   G.save(); Sync.checkpoint(); grown();
 });
@@ -652,9 +656,23 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
   }).catch(() => { /* offline support is a bonus */ });
 }
 
-// Cloud save: repaint the status chip when it changes; redraw the screen when newer progress arrives.
+// Newer progress arrived from the cloud. Fold it in without disturbing what he is doing:
+// never scroll, and never rebuild the screen under his finger unless it is now wrong.
+function absorbCloud() {
+  const [name, arg] = (location.hash.slice(1) || "home").split("/");
+  if (document.body.dataset.route === "welcome") return render();
+  if (name === "dig") { if (digSig() !== shownDig) { entry = null; render(true); } return; }   // only if the rock itself changed
+  if (name === "guide" && arg) {                                                                // reading a chapter: touch nothing but the finish line
+    const l = LESSON_BY_ID[arg], f = $("#finish");
+    if (l && f && G.S.read[l.id] && f.querySelector("[data-act=finish]")) { const open = LESSONS.filter(lessonOpen); f.innerHTML = finishHTML(l, open[open.indexOf(l) + 1]); }
+    return paintBadge();
+  }
+  if (["home", "dex", "guide"].includes(name)) { const y = window.scrollY; render(true); window.scrollTo(0, y); return; }
+  paintBadge();   // field card, reveal, Field Test, Grown-ups: left alone; they read fresh progress on the next move
+}
+// Cloud save: repaint the status chip when it changes; fold in newer progress when it arrives.
 Sync.listen(
   () => { const c = $("#cloudchip"); if (c) c.textContent = cloudText(); const st = $("#cloudstate"); if (st) st.textContent = cloudText(); },
-  () => { entry = null; render(); });
+  absorbCloud);
 render();
 Sync.start();

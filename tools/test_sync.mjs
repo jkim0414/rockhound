@@ -86,6 +86,28 @@ await ok("a rock in progress is dropped if the other device already found that s
   a.solved = 5; a.box = { target: "topaz", probs: [], i: 1 }; b.solved = 3; b.collected = { topaz: 50 };
   assert.equal(G.mergeStates(a, b).box, null);
 });
+await ok("a grown-up's newer level change on another device is kept", () => {
+  const ipad = base(), phone = base();
+  ipad.solved = 24; ipad.math.MD.lvl = 2;                       // the child's device, still playing
+  phone.solved = 24; phone.math.MD = { lvl: 1, m: 0, bad: 0, last: "", at: 2000 };   // parent lowered it on a phone
+  assert.equal(G.mergeStates(ipad, phone).math.MD.lvl, 1);
+  assert.equal(G.mergeStates(phone, ipad).math.MD.lvl, 1);
+  ipad.solved = 30; ipad.math.MD = { lvl: 3, m: 0, bad: 0, last: "", at: 5000 };     // later the strand moved again through play
+  assert.equal(G.mergeStates(ipad, phone).math.MD.lvl, 3);
+});
+await ok("newer settings win, older settings do not", () => {
+  const a = base(), b = base();
+  a.solved = 10; a.set = { limit: 0, sound: true, pace: "gentle", at: 100 };
+  b.solved = 2; b.set = { limit: 5, sound: false, pace: "steady", at: 900 };
+  assert.equal(G.mergeStates(a, b).set.pace, "steady"); assert.equal(G.mergeStates(a, b).set.limit, 5);
+  b.set.at = 50;
+  assert.equal(G.mergeStates(a, b).set.pace, "gentle");
+});
+await ok("combining with an older copy of the same save changes nothing", () => {
+  const now = base(); Object.assign(now, { solved: 9, collected: { quartz: 100, pyrite: 300 }, order: ["pyrite", "quartz"], read: { start: 1, sorting: 1 } });
+  const earlier = JSON.parse(JSON.stringify(now)); delete earlier.read.sorting; earlier.solved = 8; delete earlier.collected.pyrite; earlier.order = ["quartz"];
+  assert.deepEqual(G.mergeStates(now, earlier), G.normalize(now));
+});
 await ok("merging is safe with an old or empty save", () => { const m = G.mergeStates(base(), { v: 1 }); assert.equal(m.name, "Tester"); assert.ok(m.math.PV); });
 
 await rm(process.env.SYNC_DATA_DIR, { recursive: true, force: true });
