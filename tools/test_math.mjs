@@ -1,5 +1,5 @@
 // Stress-test every math generator: node tools/test_math.mjs [skillId to print samples]
-import { allSkills, check, skillsAt, STRAND_IDS, MAX_LEVEL } from "../js/math.js";
+import { allSkills, check, skillsAt, STRAND_IDS, MAX_LEVEL, MIN_LEVEL } from "../js/math.js";
 
 let bad = 0;
 const fail = (id, why, p) => { bad++; if (bad < 40) console.log("FAIL", id, why, JSON.stringify(p).slice(0, 300)); };
@@ -39,7 +39,7 @@ for (const s of allSkills()) {
   if (Date.now() - t0 > 1500) console.log("SLOW", s.id, Date.now() - t0, "ms");
 }
 
-for (const st of STRAND_IDS) for (let l = 1; l <= MAX_LEVEL; l++)
+for (const st of STRAND_IDS) for (let l = MIN_LEVEL; l <= MAX_LEVEL; l++)
   if (!skillsAt(st, l).length) { bad++; console.log("EMPTY LEVEL", st, l); }
 
 console.log(`${allSkills().length} skills checked, ${bad} failures`);

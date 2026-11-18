@@ -4,6 +4,7 @@
 // Hints are progressive: `hint` is a nudge, `steps` is the full worked solution.
 
 export const MAX_LEVEL = 10;
+export const MIN_LEVEL = 0;          // the Starter level, below level 1 (only for explorers set up to use it)
 export const STRANDS = {
   PV: { name: "Place value", long: "Place value & number sense", icon: "🔢" },
   AS: { name: "Add & subtract", long: "Addition & subtraction", icon: "➕" },
@@ -97,6 +98,15 @@ function fracBar(k, n) {
   for (let i = 0; i < n; i++) cells += `<span class="${i < k ? "on" : ""}"></span>`;
   return `<div class="fracbar">${cells}</div>`;
 }
+
+// Pebbles to count. groups = how many in each pile; the last `gone` pebbles are crossed out.
+function pile(groups, gone = 0) {
+  const total = groups.reduce((a, c) => a + c, 0); let seen = 0;
+  const peb = () => `<span class="peb${++seen > total - gone ? " out" : ""}"></span>`;
+  return `<div class="pebbles">${groups.map(n => `<div class="pgroup" style="--cols:${Math.min(n, 5)}">${Array.from({ length: n }, peb).join("")}</div>`).join("")}</div>`;
+}
+const blank = `<span class="blank">?</span>`;
+const plural = (n, word) => n === 1 ? word : word + "s";
 
 // ───────── arithmetic helpers
 const carries = nums => { let c = 0, k = 0; for (let p = 0; p < 8; p++) { const s = nums.reduce((a, n) => a + Math.floor(n / 10 ** p) % 10, 0) + c; c = Math.floor(s / 10); if (c) k++; } return k; };
@@ -226,6 +236,31 @@ function compare(len) {
     steps: [`${pvn(a)} and ${pvn(c)}`, `They are the same until the ${b(PLACES[len - 1 - i])} place.`, `There, ${String(a)[i]} vs ${String(c)[i]} — so ${b(fmt(Math.max(a, c)))} is greater.`] };
 }
 
+// Starter level
+skill("pv_tens", "PV", 0, "Read tens and units stamps", () => {
+  const t = ri(1, 9), u = ri(1, 9), n = t * 10 + u;
+  return { q: "What number do these stamps make?", vis: stamps({ t, u }), type: "num", ans: n,
+    hint: "Count the blue tens first: 10, 20, 30… Then count on with the green units.",
+    steps: [`${t} blue ${plural(t, "ten")} = ${t * 10}`, `${u} green ${plural(u, "unit")} = ${u}`, `${t * 10} + ${u} = ${b(n)}`] };
+});
+skill("pv_next", "PV", 0, "The number just after or just before", () => {
+  const n = ri(12, 98), after = chance(0.6);
+  return after
+    ? { q: `What number comes <b>just after</b> ${b(n)}?`, type: "num", ans: n + 1, hint: "Count on one more.",
+        steps: [`Count: ${n - 1}, ${n}, …`, `One more than ${n} is ${b(n + 1)}`] }
+    : { q: `What number comes <b>just before</b> ${b(n)}?`, type: "num", ans: n - 1, hint: "Count back one.",
+        steps: [`Count back: ${n + 1}, ${n}, …`, `One less than ${n} is ${b(n - 1)}`] };
+});
+skill("pv_more2", "PV", 0, "Which number is more (2 digits)", () => {
+  const a = ri(11, 98), flip = Number(String(a).split("").reverse().join(""));
+  const c = until(() => chance(0.4) ? flip : ri(11, 98), v => v !== a && v >= 10);
+  const sameTens = Math.floor(a / 10) === Math.floor(c / 10);
+  return { q: `One bucket holds ${b(a)} pebbles. Another holds ${b(c)} pebbles.<br>Which number is <b>more</b>?`, type: "choice", choices: [String(a), String(c)], ans: a > c ? 0 : 1,
+    hint: "Look at the tens first. More tens means a bigger number. If the tens are the same, look at the units.",
+    steps: [`${pvn(a)} and ${pvn(c)}`,
+      sameTens ? `The tens are the same, so look at the units: ${a % 10} and ${c % 10}.` : `Look at the tens: ${Math.floor(a / 10)} and ${Math.floor(c / 10)}.`,
+      `${b(Math.max(a, c))} is more.`] };
+});
 skill("pv_stamps3", "PV", 1, "Read Stamp Game stamps", () => {
   const h = ri(1, 9), t = ri(0, 9), u = ri(1, 9), n = h * 100 + t * 10 + u;
   return { q: "What number do these stamps make?", vis: stamps({ h, t, u }), type: "num", ans: n,
@@ -388,6 +423,31 @@ skill("dec_add100", "PV", 10, "Add decimals with hundredths", () => {
 });
 
 /* ══════════ AS · addition & subtraction ══════════ */
+// Starter level
+skill("as_add10", "AS", 0, "Adding up to 10, with pebbles", () => {
+  const a = ri(1, 7), c = ri(1, Math.min(8, 10 - a));
+  return { q: `You found ${b(a)} ${plural(a, "pebble")}, then ${b(c)} more. How many pebbles now?`, vis: pile([a, c]), type: "num", ans: a + c, unit: "pebbles",
+    hint: "Start at the first pile's number. Then count on through the second pile.",
+    steps: [`Start at ${a}.`, `Count on ${c} more: ${Array.from({ length: c }, (_, k) => a + k + 1).join(", ")}`, `${a} + ${c} = ${b(a + c)}`] };
+});
+skill("as_sub10", "AS", 0, "Taking away within 10, with pebbles", () => {
+  const a = ri(3, 10), c = ri(1, a - 1);
+  return { q: `You had ${b(a)} pebbles and gave away ${b(c)}. How many are left?`, vis: pile([a], c), type: "num", ans: a - c, unit: plural(a - c, "pebble"),
+    hint: "The crossed-out pebbles are gone. Count the ones that are left.",
+    steps: [`Start with ${a}.`, `Cross out ${c}.`, `${a} − ${c} = ${b(a - c)}`] };
+});
+skill("as_add20", "AS", 0, "Adding up to 20", () => {
+  const a = ri(5, 9), c = ri(11 - a, 9);
+  return { q: eq(`${a} + ${c} = ?`), type: "num", ans: a + c,
+    hint: "Make a ten first. How many more does the first number need to reach 10?",
+    steps: [`${a} needs ${10 - a} more to reach 10.`, `Split ${c} into ${10 - a} and ${c - (10 - a)}.`, `10 + ${c - (10 - a)} = ${b(a + c)}`] };
+});
+skill("as_sub20", "AS", 0, "Taking away within 20", () => {
+  const a = ri(11, 18), c = ri(a - 9, 9);
+  return { q: eq(`${a} − ${c} = ?`), type: "num", ans: a - c,
+    hint: "Take away just enough to land on 10. Then take away the rest.",
+    steps: [`Take away ${a - 10} to land on 10.`, `You still need to take away ${c - (a - 10)} more.`, `10 − ${c - (a - 10)} = ${b(a - c)}`] };
+});
 skill("as_add21", "AS", 1, "2-digit + 1-digit, crossing a ten", () => { const a = until(() => ri(14, 89), v => v % 10 >= 4), c = ri(11 - a % 10, 9); return addProb([a, c], { story: 0 }); });
 skill("as_sub21", "AS", 1, "2-digit − 1-digit, crossing a ten", () => { const a = until(() => ri(21, 95), v => v % 10 <= 6 && v % 10 >= 1), c = ri(a % 10 + 1, 9); return subProb(a, c, { story: 0 }); });
 skill("as_add22n", "AS", 1, "2-digit + 2-digit (no exchanging)", () => { const [a, c] = until(() => [ri(11, 78), ri(11, 78)], v => carries(v) === 0 && v[0] + v[1] < 100); return addProb([a, c], { story: 0.2 }); });
@@ -472,6 +532,25 @@ function splitTimes(a, c, vertical) {
   else if (chance(0.3)) p.q = `One crate holds ${b(fmt(a))} kg of ore. How many kilograms are in ${b(c)} crates?`;
   return p;
 }
+// Starter level
+skill("md_groups", "MD", 0, "Equal groups, with pebbles", () => {
+  const g = ri(2, 4), n = ri(2, 5);
+  return { q: `There are ${b(g)} piles with ${b(n)} pebbles in each pile. How many pebbles altogether?`, vis: pile(Array(g).fill(n)), type: "num", ans: g * n, unit: "pebbles",
+    hint: "Count one pile. Then keep counting on through the next pile.",
+    steps: [`Each pile has ${n}.`, `Count pile by pile: ${Array.from({ length: g }, (_, k) => (k + 1) * n).join(", ")}`, `${g} piles of ${n} make ${b(g * n)}`] };
+});
+skill("md_double", "MD", 0, "Doubles", () => {
+  const n = ri(2, 10);
+  return { q: chance(0.5) ? `A rockhound finds ${b(n)} agates. Her twin finds ${b(n)} too. How many agates do they have together?` : eq(`${n} + ${n} = ?`), type: "num", ans: 2 * n,
+    hint: "This is a double: a number added to itself.",
+    steps: [`Double ${n} means ${n} + ${n}.`, `${n} + ${n} = ${b(2 * n)}`] };
+});
+skill("md_skip", "MD", 0, "Counting by 2s, 5s and 10s", () => {
+  const k = pick([2, 5, 10]), start = k * ri(1, k === 10 ? 5 : 6), seq = [0, 1, 2].map(i => start + i * k), ans = start + 3 * k;
+  return { q: `Count by ${k}s. What comes next?${eq(`${seq.join(", ")}, ?`)}`, type: "num", ans,
+    hint: `Each jump adds ${k}.`,
+    steps: [`Each number is ${k} more than the one before.`, `${seq[2]} + ${k} = ${b(ans)}`] };
+});
 skill("md_t_easy", "MD", 1, "Times tables: 2, 3, 4, 5, 10", () => timesFact(ri(2, 10), pick([2, 3, 4, 5, 10])));
 skill("md_t_hard", "MD", 2, "Times tables: 6, 7, 8, 9", () => timesFact(ri(3, 9), pick([6, 7, 8, 9])));
 skill("md_t_1112", "MD", 3, "Times tables: 11 and 12", () => timesFact(ri(3, 12), pick([11, 12])));
@@ -533,6 +612,25 @@ skill("md_4d1", "MD", 10, "4-digit ÷ 1-digit", () => {
 
 /* ══════════ AL · balance scales & algebra ══════════ */
 const rocks = k => Array(k).fill("x");
+// Starter level
+skill("al_miss_add", "AL", 0, "Missing number: a + ? = b", () => {
+  const x = ri(1, 6), a = ri(1, 10 - x), total = a + x;
+  return { q: `What number goes in the box?${eq(`${a} + ${blank} = ${total}`)}`, type: "num", ans: x,
+    hint: `Start at ${a} and count up until you reach ${total}. How many did you count?`,
+    steps: [`Count up from ${a} to ${total}: ${Array.from({ length: x }, (_, k) => a + k + 1).join(", ")}`, `That is ${x} ${plural(x, "jump")}.`, `${a} + ${b(x)} = ${total}`] };
+});
+skill("al_miss_sub", "AL", 0, "Missing number: a − ? = b", () => {
+  const total = ri(4, 10), x = ri(1, total - 1);
+  return { q: `What number goes in the box?${eq(`${total} − ${blank} = ${total - x}`)}`, type: "num", ans: x,
+    hint: `Count back from ${total} until you reach ${total - x}. How many steps back was that?`,
+    steps: [`Count back from ${total} to ${total - x}: ${Array.from({ length: x }, (_, k) => total - k - 1).join(", ")}`, `That is ${x} ${plural(x, "step")} back.`, `${total} − ${b(x)} = ${total - x}`] };
+});
+skill("al_scale0", "AL", 0, "Balance scale with small numbers", () => {
+  const x = ri(1, 6), a = ri(1, 4);
+  return { q: "The scale is balanced. How much does the mystery rock <i>x</i> weigh?", vis: balance(["x", a], [x + a]), type: "num", ans: x,
+    hint: `Both sides weigh the same. What do you add to ${a} to make ${x + a}?`,
+    steps: [`The right side weighs ${x + a}, so the left side does too.`, `${a} + the rock = ${x + a}`, `The rock weighs ${b(x)}, because ${a} + ${x} = ${x + a}`] };
+});
 skill("al_scale1", "AL", 1, "Balance scale: x + a = b", () => {
   const x = ri(2, 12), a = ri(2, 9);
   return { q: "The scale is balanced. How much does the mystery rock <i>x</i> weigh?", vis: balance(["x", a], [x + a]), type: "num", ans: x,
@@ -629,6 +727,25 @@ skill("al_seq", "AL", 10, "Growing patterns", () => {
 });
 
 /* ══════════ FR · fractions & proportion ══════════ */
+// Starter level
+skill("fr_half_small", "FR", 0, "Half of a small group", () => {
+  const q = ri(2, 6), total = 2 * q;
+  return { q: `You have ${b(total)} pebbles. You give <b>half</b> to a friend. How many pebbles does your friend get?`, vis: pile([total]), type: "num", ans: q, unit: "pebbles",
+    hint: "Half means two equal groups: one for you, one for your friend. Deal them out one at a time.",
+    steps: ["Make 2 equal groups.", `${q} for you and ${q} for your friend makes ${total}.`, `Half of ${total} is ${b(q)}`] };
+});
+skill("fr_slices", "FR", 0, "Counting equal slices", () => {
+  const n = pick([2, 3, 4, 5, 6]), k = ri(1, n - 1), all = chance(0.5), ans = all ? n : k;
+  return { q: `A bar of fluorite is cut into equal slices. How many slices are ${all ? "there <b>altogether</b>" : "<b>purple</b>"}?`, vis: fracBar(k, n), type: "num", ans, unit: plural(ans, "slice"),
+    hint: all ? "Count every slice, purple and white." : "Count only the purple slices.",
+    steps: [`${k} ${k === 1 ? "slice is" : "slices are"} purple and ${n - k} ${n - k === 1 ? "is" : "are"} white.`, all ? `Altogether there are ${b(n)}` : `The purple ones: ${b(k)}`] };
+});
+skill("fr_word", "FR", 0, "Half, third or quarter", () => {
+  const names = { 2: "a half", 3: "a third", 4: "a quarter" }, n = pick([2, 3, 4]), choices = shuffle(Object.values(names));
+  return { q: `This bar is cut into ${b(n)} equal slices and ${b(1)} slice is purple. What is the purple part called?`, vis: fracBar(1, n), type: "choice", choices, ans: choices.indexOf(names[n]),
+    hint: "2 equal slices are halves. 3 equal slices are thirds. 4 equal slices are quarters.",
+    steps: [`Count the equal slices: ${n}.`, `${n} equal slices are called ${nth(n)}.`, `One slice is ${b(names[n])}.`] };
+});
 skill("fr_shade", "FR", 1, "Name the fraction", () => {
   const n = pick([2, 3, 4, 5, 6, 8]), k = ri(1, n - 1);
   return { q: `A bar of fluorite is cut into equal slices. What <b>fraction</b> of the bar is purple?`, vis: fracBar(k, n), type: "frac", ans: { n: k, d: n },
@@ -747,6 +864,7 @@ export const allSkills = () => SKILLS;
 
 export function makeProblem(strand, level, avoid) {
   let pool = skillsAt(strand, level);
+  if (!pool.length) pool = skillsAt(strand, Math.max(MIN_LEVEL, Math.min(MAX_LEVEL, level)));   // never crash on a level that does not exist
   if (pool.length > 1 && avoid) pool = pool.filter(s => s.id !== avoid);
   return fromSkill(pick(pool));
 }

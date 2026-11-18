@@ -1,6 +1,6 @@
 // Saved state + game rules. Everything lives in localStorage on the device.
 import { SPECIMENS, STAGES, FINAL_RANK } from "./data.js";
-import { STRAND_IDS, MAX_LEVEL, makeProblem, regenerate } from "./math.js";
+import { STRAND_IDS, MAX_LEVEL, MIN_LEVEL, makeProblem, regenerate } from "./math.js";
 
 const KEY = "rockhound.v1";
 const LUCKY_CHANCE = 0.12;          // chance a rock holds a specimen from the next expedition
@@ -17,11 +17,14 @@ export const PACES = {
   quick: { name: "Quick", goal: 4, perDay: 99, about: "No daily limit. A strand moves up after 4 first-try solves." },
 };
 
+// set.floor is the lowest level play may reach by itself. It is 1 here on purpose: any save made
+// before the Starter level existed has no floor of its own, picks this one up, and so keeps
+// behaving exactly as it always did. Only begin() (a new explorer) opens up the Starter level.
 const fresh = () => ({
   v: 1, name: "", pin: "", collected: {}, order: [],
   math: Object.fromEntries(STRAND_IDS.map(s => [s, { lvl: 1, m: 0, bad: 0, last: "" }])),
   stats: {}, log: [], rot: [], box: null, last: null,
-  day: { d: "", n: 0 }, ups: { d: "", n: 0 }, set: { limit: 0, sound: true, pace: "gentle" },
+  day: { d: "", n: 0 }, ups: { d: "", n: 0 }, set: { limit: 0, sound: true, pace: "gentle", floor: 1 },
   read: {}, quiz: {}, solved: 0, rules: RULES,
 });
 
@@ -33,10 +36,10 @@ const today = () => dayOf(clock());
 // The levelling rule itself, shared by live play and by recalibration.
 // First try: +1. Two tries: -1. Needed the worked steps: -2. Misses in a row add up, and
 // three points of trouble in a row move the strand back down a level.
-function settle(m, tries, { goal, cap, mayRise }) {
+function settle(m, tries, { goal, cap, mayRise, floor = 1 }) {
   if (tries === 1) { m.m = Math.min(goal, m.m + 1); m.bad = 0; }
   else { const w = tries >= 3 ? 2 : 1; m.m = Math.max(0, m.m - w); m.bad += w; }
-  if (m.bad >= 3 && m.lvl > 1) { m.lvl--; m.m = Math.floor(goal / 2); m.bad = 0; return "down"; }
+  if (m.bad >= 3 && m.lvl > floor) { m.lvl--; m.m = Math.floor(goal / 2); m.bad = 0; return "down"; }
   if (tries === 1 && m.m >= goal && m.lvl < cap && mayRise()) { m.lvl++; m.m = 0; m.bad = 0; return "up"; }
   return null;
 }
@@ -83,7 +86,24 @@ write();                                    // keep any recalibration done while
 let afterSave = null;                       // cloud save listens here
 export const setAfterSave = fn => { afterSave = fn; };
 export const save = () => { write(); if (afterSave) afterSave(); };
-export const resetAll = () => { const keep = { name: S.name, pin: S.pin, set: S.set }; S = { ...fresh(), ...keep }; save(); };
+const placeAll = lvl => { for (const id of STRAND_IDS) S.math[id].lvl = lvl; };
+export const resetAll = () => {
+  const keep = { name: S.name, pin: S.pin, set: S.set };
+  S = { ...fresh(), ...keep };
+  if (STARTS.includes(S.set.start)) placeAll(S.set.start);   // back to where this explorer was set up to start
+  save();
+};
+// Set up a brand-new explorer. `start` is the level a grown-up chose on the welcome screen.
+// New explorers may also step down to the Starter level by themselves if the math is too hard.
+export const STARTS = [MIN_LEVEL, 1, 3];
+export function begin(name, start) {
+  S.name = name;
+  S.set.start = STARTS.includes(start) ? start : 1;
+  S.set.floor = MIN_LEVEL;
+  placeAll(S.set.start);
+  save();
+}
+export const levelFloor = () => (S.set.floor === MIN_LEVEL ? MIN_LEVEL : 1);
 // Replace everything with a state that came from the cloud (does not count as a local change).
 export const adopt = state => { S = normalize(state); write(); };
 export const wipe = () => { S = fresh(); write(); };
@@ -149,11 +169,12 @@ export function startBox(variant) {
   let pool = missingIn(st), lucky = false;
   const next = missingIn(st + 1);
   if (next.length && foundIn(st) >= 3 && Math.random() < LUCKY_CHANCE) { pool = next; lucky = true; }
+  const floor = levelFloor();
   const probs = takeStrands(3).map(sid => {
     const m = S.math[sid];
     let lvl = m.lvl;
     const settling = m.m < masteryGoal() * 0.4;      // a level he only just reached: mix in more of what he knows
-    if (lvl > 1 && Math.random() < (settling ? SETTLING_REVIEW : REVIEW_CHANCE)) lvl -= ri(1, Math.min(2, lvl - 1));
+    if (lvl > floor && Math.random() < (settling ? SETTLING_REVIEW : REVIEW_CHANCE)) lvl -= ri(1, Math.min(2, lvl - floor));
     const p = makeProblem(sid, lvl, m.last);
     m.last = p.skill;
     return p;
@@ -176,7 +197,7 @@ export function recordSolve(p, tries) {
   S.solved++;
   const m = S.math[p.strand];
   if (p.level !== m.lvl) return null;
-  const moved = settle(m, tries, { goal: masteryGoal(), cap: levelCap(), mayRise: () => risesToday() < pace().perDay });
+  const moved = settle(m, tries, { goal: masteryGoal(), cap: levelCap(), floor: levelFloor(), mayRise: () => risesToday() < pace().perDay });
   if (moved === "up") S.ups.n++;
   if (moved) m.at = clock().getTime();
   return moved;

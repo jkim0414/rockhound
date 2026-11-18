@@ -14,8 +14,11 @@ const nextDay = () => { now = new Date(now.getTime() + 86_400_000); };
 const levels = () => STRAND_IDS.map(s => s + G.S.math[s].lvl).join(" ");
 const sumLevels = () => STRAND_IDS.reduce((a, s) => a + G.S.math[s].lvl, 0);
 
-function play(label, { pace, perDay, firstTry, struggle }) {
-  G.resetAll();
+function play(label, { pace, perDay, firstTry, struggle, start }) {
+  G.wipe();                                   // a save from before the Starter level existed…
+  if (start !== undefined) G.begin("Tester", start);   // …or a new explorer set up on the welcome screen
+  const lowest = start === undefined ? 1 : 0;
+  let lowestSeen = 99;
   G.S.set.pace = pace;
   now = new Date("2026-01-01T16:00:00");
   const strandCount = Object.fromEntries(STRAND_IDS.map(s => [s, 0])), trail = [];
@@ -29,8 +32,11 @@ function play(label, { pace, perDay, firstTry, struggle }) {
     for (const p of b.probs) {
       strandCount[p.strand]++;
       assert.ok(p.level <= G.S.math[p.strand].lvl, "a problem above the strand's level was served");
+      assert.ok(p.level >= lowest, `a level ${p.level} problem was served to a save whose lowest level is ${lowest}`);
+      lowestSeen = Math.min(lowestSeen, p.level);
       const r = Math.random(), tries = r < firstTry ? 1 : r < firstTry + struggle ? 3 : 2;
       const moved = G.recordSolve(p, tries);
+      assert.ok(G.S.math[p.strand].lvl >= lowest, "a strand dropped below the lowest level allowed");
       if (moved === "up") { b.ups.push(p.strand); risesToday++; maxRiseInADay = Math.max(maxRiseInADay, risesToday); }
       if (moved === "down") downs++;
       b.i++;
@@ -44,7 +50,7 @@ function play(label, { pace, perDay, firstTry, struggle }) {
   assert.ok(maxRiseInADay <= G.PACES[pace].perDay, `${maxRiseInADay} strands moved up in one day at ${pace} pace`);
   console.log(`\n${label}\n  ${boxes} rocks over ${day} days (${perDay} a day), ${lucky} lucky finds, ${downs} moves back down, most strands moved up in one day: ${maxRiseInADay}`);
   console.log("  levels at each expedition end:\n   " + trail.join("\n   "));
-  return { days: day, total: sumLevels() };
+  return { days: day, total: sumLevels(), lowestSeen };
 }
 
 console.log("pacing");
@@ -90,9 +96,49 @@ const partial = { ...JSON.parse(JSON.stringify(old)), solved: 500 };
 assert.deepEqual(STRAND_IDS.map(s => G.normalize(partial).math[s].lvl), [2, 2, 2, 2, 2]);
 console.log("  ✓ a save whose history is incomplete keeps its levels");
 
+// The Starter level and the starting point chosen at setup.
+console.log("starting points");
+G.wipe();
+assert.equal(G.levelFloor(), 1); assert.deepEqual(STRAND_IDS.map(s => G.S.math[s].lvl), [1, 1, 1, 1, 1]);
+const before = G.normalize({ v: 1, name: "Old", solved: 500, log: [], collected: { quartz: t0 }, rules: 2, set: { limit: 0, sound: true, pace: "gentle" },
+  math: { PV: { lvl: 2, m: 3, bad: 1, last: "pv_digit4" }, AS: { lvl: 1, m: 7, bad: 0, last: "" }, MD: { lvl: 1, m: 0, bad: 2, last: "" }, AL: { lvl: 3, m: 1, bad: 0, last: "" }, FR: { lvl: 1, m: 5, bad: 0, last: "" } } });
+assert.equal(before.set.floor, 1);
+assert.deepEqual(STRAND_IDS.map(s => [before.math[s].lvl, before.math[s].m, before.math[s].bad]), [[2, 3, 1], [1, 7, 0], [1, 0, 2], [3, 1, 0], [1, 5, 0]]);
+console.log("  ✓ a save from before the Starter level keeps its levels and never goes below level 1 by itself");
+G.adopt(before);
+for (let i = 0; i < 6; i++) assert.notEqual(G.recordSolve({ strand: "MD", level: 1, skill: "x" }, 3), "down");
+assert.equal(G.S.math.MD.lvl, 1);
+console.log("  ✓ on such a save, repeated trouble at level 1 does not drop to Starter");
+for (const start of [0, 1, 3]) {
+  G.wipe(); G.begin("New", start);
+  assert.deepEqual(STRAND_IDS.map(s => G.S.math[s].lvl), Array(5).fill(start)); assert.equal(G.levelFloor(), 0); assert.equal(G.S.name, "New");
+  const box = G.startBox(0); assert.ok(box.probs.every(p => p.level <= start && p.level >= 0 && p.q));
+}
+console.log("  ✓ a new explorer starts every strand at the level chosen on the welcome screen (Starter, 1 or 3)");
+G.wipe(); G.begin("New", 99); assert.equal(G.S.math.PV.lvl, 1);
+console.log("  ✓ an unknown starting point falls back to level 1");
+G.wipe(); G.begin("New", 1);
+G.recordSolve({ strand: "FR", level: 1, skill: "x" }, 2); assert.equal(G.recordSolve({ strand: "FR", level: 1, skill: "x" }, 3), "down");
+assert.equal(G.S.math.FR.lvl, 0);
+for (let i = 0; i < 6; i++) G.recordSolve({ strand: "FR", level: 0, skill: "x" }, 3);
+assert.equal(G.S.math.FR.lvl, 0);
+console.log("  ✓ a new explorer who finds level 1 too hard steps down to Starter, and no lower");
+G.wipe(); G.begin("New", 0); G.S.math.PV.lvl = 2; G.resetAll();
+assert.deepEqual(STRAND_IDS.map(s => G.S.math[s].lvl), [0, 0, 0, 0, 0]); assert.equal(G.levelFloor(), 0);
+G.wipe(); G.S.name = "Old"; G.S.math.PV.lvl = 4; G.resetAll();
+assert.deepEqual(STRAND_IDS.map(s => G.S.math[s].lvl), [1, 1, 1, 1, 1]); assert.equal(G.levelFloor(), 1);
+console.log("  ✓ resetting progress goes back to that explorer's own starting point");
+const merged = G.mergeStates(before, { ...JSON.parse(JSON.stringify(before)), solved: 400 });
+assert.equal(merged.set.floor, 1); assert.equal(merged.math.AL.lvl, 3);
+console.log("  ✓ combining two devices keeps the lowest-level rule");
+
 const gentle = play("Gentle pace, perfect player (every problem right first time), 6 rocks a day", { pace: "gentle", perDay: 6, firstTry: 1, struggle: 0 });
 const steady = play("Steady pace, strong player (85% first try), 6 rocks a day", { pace: "steady", perDay: 6, firstTry: 0.85, struggle: 0.03 });
 const quick = play("Quick pace, perfect player, 6 rocks a day", { pace: "quick", perDay: 6, firstTry: 1, struggle: 0 });
 play("Gentle pace, struggling player (45% first try, 25% need the worked steps), 4 rocks a day", { pace: "gentle", perDay: 4, firstTry: 0.45, struggle: 0.25 });
 assert.ok(gentle.total < quick.total, "gentle should climb more slowly than quick");
+const starter = play("New explorer starting on Starter, gentle pace, struggling player (45% first try), 4 rocks a day", { pace: "gentle", perDay: 4, firstTry: 0.45, struggle: 0.25, start: 0 });
+assert.equal(starter.lowestSeen, 0, "a Starter explorer should be served Starter problems");
+play("New explorer starting on Starter, steady pace, strong player (85% first try), 6 rocks a day", { pace: "steady", perDay: 6, firstTry: 0.85, struggle: 0.03, start: 0 });
+play("New explorer starting at level 3, gentle pace, struggling player, 4 rocks a day", { pace: "gentle", perDay: 4, firstTry: 0.45, struggle: 0.25, start: 3 });
 console.log("\nall playthroughs completed");

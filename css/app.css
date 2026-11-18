@@ -303,3 +303,23 @@ table.mohs td:first-child { width: 40px; text-align: center; font-weight: 800; b
   .btn.choice { min-height: 64px; }
 }
 @media (max-width: 819px) and (min-height: 900px) { .rockwrap .mrock { width: 120px; } .key { height: 60px; } }
+
+/* Starter level pictures */
+.pebbles { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+.pgroup { display: grid; grid-template-columns: repeat(var(--cols, 5), 30px); gap: 6px; padding: 10px; border: 2px dashed var(--paper-line); border-radius: 14px; background: #fff; }
+.peb { width: 30px; height: 26px; border-radius: 52% 48% 46% 54% / 58% 52% 48% 42%; background: #8b7b6b; box-shadow: inset -3px -4px 0 rgba(0, 0, 0, .18), inset 2px 2px 0 rgba(255, 255, 255, .25); }
+.peb:nth-child(3n) { background: #a39280; } .peb:nth-child(4n + 1) { background: #766859; }
+.peb.out { background: #fff; box-shadow: none; border: 2px dashed #c9bfa9; display: grid; place-items: center; }
+.peb.out::after { content: "✕"; color: #dc2626; font-size: 15px; font-weight: 800; line-height: 1; }
+.blank { display: inline-grid; place-items: center; min-width: 1.25em; height: 1.25em; border: 3px dashed #b9ad95; border-radius: 9px; color: var(--paper-mute); vertical-align: -.16em; }
+@media (max-width: 400px) { .pgroup { grid-template-columns: repeat(var(--cols, 5), 26px); gap: 5px; padding: 8px; } .peb { width: 26px; height: 23px; } }
+
+/* welcome: where the math starts */
+.startpick { border: 2px solid var(--line); border-radius: 14px; padding: 12px; margin: 6px 0 0; display: grid; gap: 8px; text-align: left; min-width: 0; }
+.startpick legend { font-weight: 700; font-size: 15px; padding: 0 6px; color: var(--mute); }
+.startpick label { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border: 2px solid var(--line); border-radius: 12px; font-weight: 400; cursor: pointer; }
+.startpick label:has(input:checked) { border-color: var(--gold); background: rgba(242, 178, 62, .12); }
+.startpick input[type=radio] { width: 22px; height: 22px; min-height: 0; padding: 0; margin: 2px 0 0; flex: none; accent-color: var(--gold); }
+.startpick label span { display: grid; gap: 2px; } .startpick label small { color: var(--mute); font-size: 14px; line-height: 1.35; }
+.startpick > small { font-size: 13px; line-height: 1.4; }
+#nameform { max-width: 380px; }

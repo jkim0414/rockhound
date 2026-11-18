@@ -44,6 +44,15 @@ Once it is hosted:
 Progress lives in that device's browser storage. Clearing Safari website data erases it, unless
 cloud save is on.
 
+## Sharing it with another family
+
+Send them the live address. Their explorer types a name, a grown-up picks where the math starts, and
+progress is kept on their own device. Nothing else is needed.
+
+Cloud save is optional and only matters for playing on more than one device. A family needs the
+family key to turn it on, there is room for 12 cloud saves in total, and the free plan's monthly
+allowance of saves is shared by everyone, so it suits a handful of friends rather than dozens.
+
 ## Cloud save (progress on every device)
 
 Each explorer can have a cloud save, which works as their account. It has no email and no password.
@@ -110,25 +119,33 @@ A switch above them shows **Everything** (with silhouettes for what is still hid
 
 ## The math ladder
 
-Five strands, ten levels each. All strands start at level 1.
+Five strands, ten levels each, plus an easier **Starter** level below level 1.
 
-**Place value & number sense** — 1 Stamp Game stamps, digit values · 2 four-digit place value, expanded form, bead frame ·
+When a new explorer is set up, a grown-up picks where the math starts on the welcome screen:
+
+| Choice | Every strand starts at | First problems |
+|---|---|---|
+| Small numbers | Starter | counting, adding and taking away up to 20, doubles and halves |
+| Two-digit numbers | level 1 | sums like 47 + 8, the 2, 3, 4, 5 and 10 times tables, naming fractions |
+| Three-digit numbers | level 3 | sums like 346 + 128, times tables up to 12, first division |
+
+**Place value & number sense** — Starter tens-and-units stamps, the number just before or after, which is more · 1 Stamp Game stamps, digit values · 2 four-digit place value, expanded form, bead frame ·
 3 stamps that need exchanging, comparing, 10/100/1,000 more · 4 rounding, patterns · 5 five- and six-digit numbers ·
 6 rounding to 1,000, ×10/×100 · 7 millions · 8 decimals: tenths (Mohs hardness) · 9 adding tenths · 10 hundredths, rounding decimals
 
-**Addition & subtraction** — 1 two-digit ± one-digit · 2 two-digit mental · 3 three-digit, one exchange ·
+**Addition & subtraction** — Starter adding and taking away up to 10 with pebbles, then up to 20 · 1 two-digit ± one-digit · 2 two-digit mental · 3 three-digit, one exchange ·
 4 four-digit static · 5 four-digit dynamic addition · 6 four-digit dynamic subtraction · 7 Dot Board (3–4 addends), across zeros ·
 8 five-digit, missing part · 9 six-digit, two-step stories · 10 long chains, the Gauss trick
 
-**Multiplication & division** — 1 tables 2/3/4/5/10 · 2 tables 6–9 · 3 tables 11–12, easy division facts ·
+**Multiplication & division** — Starter equal piles of pebbles, doubles, counting by 2s, 5s and 10s · 1 tables 2/3/4/5/10 · 2 tables 6–9 · 3 tables 11–12, easy division facts ·
 4 all division facts, multiples of ten · 5 2-digit × 1-digit · 6 3-digit × 1-digit, remainders · 7 4-digit × 1-digit, 2-digit ÷ 1-digit ·
 8 2-digit × 2-digit · 9 3-digit ÷ 1-digit, order of operations · 10 long division with remainders, parentheses
 
-**Balance scales & algebra** — 1 scale: x + a = b · 2 scale: equal rocks; x − a = b · 3 two-step scale ·
+**Balance scales & algebra** — Starter missing number (3 + ? = 7, 9 − ? = 5), small balance scales · 1 scale: x + a = b · 2 scale: equal rocks; x − a = b · 3 two-step scale ·
 4 one-step equations · 5 two-step equations · 6 scale with rocks on both sides · 7 x on both sides, division ·
 8 parentheses · 9 two unknowns · 10 function rules, growing patterns
 
-**Fractions & proportion** — 1 naming fractions, half and quarter · 2 unit fraction of a set · 3 fraction of a set ·
+**Fractions & proportion** — Starter half of a small group, counting equal slices, half / third / quarter by name · 1 naming fractions, half and quarter · 2 unit fraction of a set · 3 fraction of a set ·
 4 equivalent fractions, comparing · 5 adding like fractions · 6 proportions · 7 simplest form, mixed numbers ·
 8 unlike denominators · 9 percent · 10 rates and ratios
 
@@ -146,11 +163,12 @@ Each strand moves on its own, slowly and on purpose. The pace is chosen under Gr
   worked steps empties two. When the dots are full the strand may move up, if the day's allowance is not used.
   The daily allowance stops everything getting harder in one sitting.
 - **Down:** trouble in a row moves a strand back a level quickly: for example one two-try problem followed by one
-  that needed the worked steps. A first-try solve in between clears the count.
+  that needed the worked steps. A first-try solve in between clears the count. A new explorer can step down as far as
+  Starter. A save made before the Starter level existed never goes below level 1 by itself.
 - **Settling in:** a level he has only just reached is mixed half-and-half with easier review. After that about one
   problem in four is review. Review never changes the level.
 - **Cap:** automatic levelling cannot pass *expedition + 2*.
-- **By hand:** the − and + buttons under Grown-ups place a strand anywhere, at any time.
+- **By hand:** the − and + buttons under Grown-ups place a strand anywhere, at any time, Starter included.
 
 Place-value colors follow Montessori materials: units green, tens blue, hundreds red. Column problems are
 answered units-first, with tap-to-mark exchange boxes above each column.

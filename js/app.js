@@ -1,6 +1,6 @@
 import { KINGDOMS, GROUPS, STAGES, SPECIMENS, BY_ID, GROUP_BY_ID, KINGDOM_BY_ID, TOTAL, RARITY, CRYSTAL_SYSTEMS, FINAL_RANK, kingdomOf, isRockLike, hardnessText, hardnessMid } from "./data.js";
 import { LESSONS, LESSON_BY_ID } from "./lessons.js";
-import { STRANDS, STRAND_IDS, MAX_LEVEL, check, skillsAt, skillName } from "./math.js";
+import { STRANDS, STRAND_IDS, MAX_LEVEL, MIN_LEVEL, check, skillsAt, skillName } from "./math.js";
 import { crystalSVG, mysteryRock } from "./shapes.js";
 import { CREDITS } from "./credits.js";
 import * as G from "./store.js";
@@ -98,6 +98,13 @@ function cloudSection() {
 }
 
 // ───────── HOME
+// What the first problems will be for each starting point (levels listed in G.STARTS).
+const START_CHOICES = [
+  [MIN_LEVEL, "Small numbers", "Counting, adding and taking away up to 20, doubles and halves."],
+  [1, "Two-digit numbers", "Sums like 47 + 8, the 2, 3, 4, 5 and 10 times tables, naming fractions."],
+  [3, "Three-digit numbers", "Sums like 346 + 128, times tables up to 12, first division."],
+];
+const levelName = lvl => (lvl === MIN_LEVEL ? "Starter" : lvl);
 function welcome() {
   document.body.dataset.route = "welcome";
   view.innerHTML = `<section class="welcome">
@@ -106,6 +113,11 @@ function welcome() {
     <p class="lead">Crack open mystery rocks. Collect ${TOTAL} real rocks, minerals, gems, and crystals.</p>
     <form id="nameform"><label for="nm">What is your name, rockhound?</label>
       <input id="nm" maxlength="16" autocomplete="off" autocapitalize="words" placeholder="Your first name" required>
+      <fieldset class="startpick"><legend>Grown-ups: where should the math start?</legend>
+        ${START_CHOICES.map(([lvl, title, about]) => `<label><input type="radio" name="start" value="${lvl}"><span><b>${title}</b><small>${about}</small></span></label>`).join("")}
+        <small class="sub">Not sure? Pick the easier one. The math gets harder by itself, and you can change it any time under Grown-ups.</small>
+      </fieldset>
+      <div id="startmsg" class="feedback"></div>
       <button class="btn big">Start exploring</button></form>
     <p class="foot"><a data-act="showjoin">I already have a cloud save code</a></p>
     <form id="joinform" hidden><label for="joincode">Type your cloud save code</label>
@@ -299,7 +311,7 @@ function found() {
     const done = L.rankUp > STAGES.length, les = LESSONS.find(l => l.stage === L.rankUp);
     extra += `<div class="banner gold"><b>🏅 Expedition complete!</b><br>New rank: <b>${done ? FINAL_RANK : STAGES[L.rankUp - 1].rank}</b>${done ? "" : `<br>Next stop: Expedition ${L.rankUp}, <b>${STAGES[L.rankUp - 1].name}</b>`}${les ? `<br>📖 New Field Guide chapter: <a data-go="guide/${les.id}">${les.title}</a>` : ""}</div>`;
   }
-  if (L.ups && L.ups.length) extra += `<div class="banner teal">⭐ Math power up: ${L.ups.map(u => `<b>${STRANDS[u].name}</b> is now level ${G.S.math[u].lvl}`).join(" · ")}</div>`;
+  if (L.ups && L.ups.length) extra += `<div class="banner teal">⭐ Math power up: ${L.ups.map(u => `<b>${STRANDS[u].name}</b> is now level ${levelName(G.S.math[u].lvl)}`).join(" · ")}</div>`;
   view.innerHTML = `<section class="found">
     <div class="foundcard ${rar(s)}">
       <div class="rays"></div>
@@ -515,7 +527,7 @@ function grown() {
     const m = S.math[id];
     const agg = S.log.filter(l => l.s === id), ft = agg.filter(l => l.n === 1).length;
     return `<tr><td><b>${STRANDS[id].icon} ${STRANDS[id].long}</b><br><small>Working on: ${skillsAt(id, m.lvl).map(s => s.name).join("; ")}</small></td>
-      <td class="lv"><button class="key sm" data-act="lvl" data-s="${id}" data-d="-1">−</button><b>${m.lvl}</b><button class="key sm" data-act="lvl" data-s="${id}" data-d="1">+</button><br><small class="dots">${"●".repeat(Math.min(m.m, goal))}${"○".repeat(Math.max(0, goal - m.m))}</small></td>
+      <td class="lv"><button class="key sm" data-act="lvl" data-s="${id}" data-d="-1">−</button><b>${levelName(m.lvl)}</b><button class="key sm" data-act="lvl" data-s="${id}" data-d="1">+</button><br><small class="dots">${"●".repeat(Math.min(m.m, goal))}${"○".repeat(Math.max(0, goal - m.m))}</small></td>
       <td>${agg.length ? Math.round(100 * ft / agg.length) + "%" : "—"}<br><small>${agg.length} recent</small></td></tr>`;
   }).join("");
   const label = n => n === 1 ? "✓ first try" : n === 2 ? "2 tries" : "needed the worked example";
@@ -527,7 +539,7 @@ function grown() {
       <div class="settings pacebox"><label>How quickly the math gets harder
         <select id="setpace">${Object.entries(G.PACES).map(([id, v]) => `<option value="${id}"${(G.S.set.pace || "gentle") === id ? " selected" : ""}>${v.name}</option>`).join("")}</select></label>
         <small class="sub">${G.pace().about}</small></div>
-      <p class="sub">Each strand has ${MAX_LEVEL} levels and moves on its own. The dots fill with first-try solves at the current level; a miss empties one or two. When they are full the strand may move up${G.pace().perDay < 9 ? ` (${G.risesToday()} of ${G.pace().perDay} used today)` : ""}. A few misses in a row move it back down. A level he has only just reached is mixed half-and-half with easier review. Use − and + to place him by hand at any time.</p>
+      <p class="sub">Each strand has ${MAX_LEVEL} levels, plus an easier Starter level below level 1, and moves on its own. The dots fill with first-try solves at the current level; a miss empties one or two. When they are full the strand may move up${G.pace().perDay < 9 ? ` (${G.risesToday()} of ${G.pace().perDay} used today)` : ""}. A few misses in a row move it back down. A level he has only just reached is mixed half-and-half with easier review. Use − and + to place him by hand at any time.${G.levelFloor() === MIN_LEVEL ? "" : " On this save, play never drops below level 1 by itself; the Starter level is only reached with the − button."}</p>
       <table class="gtable"><tr><th>Strand</th><th>Level</th><th>First try</th></tr>${rows}</table>
       <h3>Recent problems</h3>
       ${S.log.length ? `<table class="gtable small">${S.log.slice(0, 15).map(l => `<tr><td>${STRANDS[l.s].icon} L${l.l}</td><td>${skillName(l.k)}</td><td>${label(l.n)}</td></tr>`).join("")}</table>` : `<p class="sub">Nothing yet.</p>`}
@@ -580,7 +592,7 @@ document.addEventListener("click", e => {
     case "quizstart": buildQuiz(); return quiz();
     case "quizpick": return quizPick(Number(d.i), a);
     case "quiznext": qz.i++; qz.missed = false; qz.answered = false; if (qz.i >= qz.qs.length) Sync.checkpoint(); return quiz();
-    case "lvl": { const m = G.S.math[d.s]; m.lvl = Math.max(1, Math.min(MAX_LEVEL, m.lvl + Number(d.d))); m.m = 0; m.bad = 0; m.at = Date.now(); G.save(); Sync.checkpoint(4000); return grown(); }
+    case "lvl": { const m = G.S.math[d.s]; m.lvl = Math.max(MIN_LEVEL, Math.min(MAX_LEVEL, m.lvl + Number(d.d))); m.m = 0; m.bad = 0; m.at = Date.now(); G.save(); Sync.checkpoint(4000); return grown(); }
     case "reset": if (confirm("Erase the whole collection and all math history on this device?")) { G.resetAll(); Sync.checkpoint(); entry = null; qz = null; toast("Progress reset."); go("home"); } return;
     case "showjoin": { const f = $("#joinform"); f.hidden = false; a.parentElement.hidden = true; $("#joincode").focus(); return; }
     case "syncnow": { const msg = $("#cloudmsg"); msg.textContent = "Saving…"; G.save(); Sync.push().then(ok => { if ($("#cloudsec")) { $("#cloudsec").innerHTML = cloudSection(); $("#cloudmsg").textContent = ok ? "Saved." : "Could not reach the cloud. It will keep trying."; } }); return; }
@@ -599,7 +611,12 @@ document.addEventListener("click", e => {
 
 document.addEventListener("submit", e => {
   e.preventDefault();
-  if (e.target.id === "nameform") { const v = $("#nm").value.trim(); if (!v) return; G.S.name = v; G.save(); go("guide/start"); }
+  if (e.target.id === "nameform") {
+    const v = $("#nm").value.trim(), picked = e.target.querySelector("input[name=start]:checked");
+    if (!v) return;
+    if (!picked) { const msg = $("#startmsg"); msg.className = "feedback soft"; msg.textContent = "Ask a grown-up to choose where the math should start."; return; }
+    G.begin(v, Number(picked.value)); go("guide/start");
+  }
   if (e.target.id === "joinform") {
     const btn = e.target.querySelector("button"), msg = $("#cloudmsg") || $("#feedback");
     btn.disabled = true; msg.className = "feedback soft"; msg.textContent = "Looking for that cloud save…";
