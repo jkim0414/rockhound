@@ -14,6 +14,7 @@ self.addEventListener("activate", e => e.waitUntil(
 self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin) return;
+  if (url.pathname.startsWith("/_vercel/")) return;      // visit counting: never cached, simply skipped when offline
   if (url.pathname.includes("/img/")) {
     e.respondWith(caches.open(IMG).then(async c =>
       (await c.match(e.request)) || fetch(e.request).then(r => { if (r.ok) c.put(e.request, r.clone()); return r; })));

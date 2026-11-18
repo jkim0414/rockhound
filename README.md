@@ -4,8 +4,13 @@ A collect-them-all rock, mineral, and gem game where every specimen is earned wi
 Pick a mystery rock, land three hammer strikes (three math problems), and a real specimen
 goes into the collection with a field card to read.
 
-It is a plain static web app with no build step and no tracking. Progress is saved on the
-device, and an optional cloud save carries it between devices.
+It is a plain static web app with no build step, no ads and no accounts to sign up for. Progress is saved
+on the device, and an optional cloud save carries it between devices.
+
+The live site counts visits with Vercel Web Analytics: how many visits, from which country and on what
+kind of device. It uses no cookies and sends nothing from the game: no names, no progress, no answers.
+The numbers are under **Analytics** in the Vercel project. To turn it off, remove the two analytics
+`<script>` lines from `index.html`.
 
 ## Live site
 

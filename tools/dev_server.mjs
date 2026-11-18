@@ -26,6 +26,10 @@ async function serve(req, res) {
     res.json = obj => { res.setHeader("Content-Type", "application/json"); res.end(JSON.stringify(obj)); };
     return sync(req, res);
   }
+  if (url.pathname.startsWith("/_vercel/")) {            // visit counting only exists on the live site
+    res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+    return res.end("/* analytics is off on this computer */");
+  }
   let rel = decodeURIComponent(url.pathname);
   if (rel.endsWith("/")) rel += "index.html";
   const full = path.join(root, rel);
