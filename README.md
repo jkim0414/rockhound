@@ -12,13 +12,12 @@ kind of device. It uses no cookies and sends nothing from the game: no names, no
 The numbers are under **Analytics** in the Vercel project. To turn it off, remove the two analytics
 `<script>` lines from `index.html`.
 
-## Live site
+## Hosting
 
-(address removed)
-
-Hosted on Vercel from this repository. Every push to `main` redeploys it within a minute.
+The live copy is hosted on Vercel from this repository. Every push to `main` redeploys it within a minute.
+Its address is deliberately not written anywhere in this repository.
 `npm test` runs every check (math generators, full playthroughs, cloud save).
-Always install and play from that exact address: progress is stored per address.
+Always install and play from one exact address: progress is stored per address.
 
 ## Run it on this computer
 
@@ -51,7 +50,7 @@ cloud save is on.
 
 ## Sharing it with another family
 
-Send them the live address. Their explorer types a name, a grown-up picks where the math starts, and
+Send them the address of the hosted copy. Their explorer types a name, a grown-up picks where the math starts, and
 progress is kept on their own device. Nothing else is needed.
 
 Cloud save is optional and only matters for playing on more than one device. A family needs the
