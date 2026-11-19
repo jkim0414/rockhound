@@ -1,6 +1,7 @@
 {
   "name": "rockhound",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Rockhound: collect rocks, minerals and gems by solving math",
   "scripts": {
