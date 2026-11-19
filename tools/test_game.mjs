@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 const mem = {};
 globalThis.localStorage = { getItem: k => mem[k] ?? null, setItem: (k, v) => { mem[k] = v; }, removeItem: k => { delete mem[k]; } };
 const G = await import("../js/store.js");
-const { TOTAL, STAGES } = await import("../js/data.js");
+const { TOTAL, STAGES, SPECIMENS } = await import("../js/data.js");
 const { STRAND_IDS } = await import("../js/math.js");
 
 // A pretend calendar so playthroughs can span many days.
@@ -131,6 +131,34 @@ console.log("  ✓ resetting progress goes back to that explorer's own starting 
 const merged = G.mergeStates(before, { ...JSON.parse(JSON.stringify(before)), solved: 400 });
 assert.equal(merged.set.floor, 1); assert.equal(merged.math.AL.lvl, 3);
 console.log("  ✓ combining two devices keeps the lowest-level rule");
+
+// Lucky finds bring a specimen from the next expedition now and then, but never its last one.
+// (The last expedition is small: before this rule, lucky finds could empty it early, and finishing
+// the expedition before it then ended the game with one celebration instead of two.)
+console.log("lucky finds");
+const idsIn = n => SPECIMENS.filter(s => s.st === n).map(s => s.id);
+const finalStage = STAGES.length;
+const foundSoFar = leftInFinal => {
+  G.wipe();
+  const ids = [...STAGES.slice(0, finalStage - 2).flatMap(st => idsIn(st.n)), ...idsIn(finalStage - 1).slice(0, 5), ...idsIn(finalStage).slice(leftInFinal)];
+  for (const id of ids) G.S.collected[id] = t0;
+};
+foundSoFar(2);
+let luckyCount = 0;
+for (let i = 0; i < 400; i++) if (G.startBox(0).lucky) luckyCount++;
+assert.ok(luckyCount > 0, "with two specimens left in the next expedition, lucky finds should still happen");
+console.log("  ✓ a lucky find can still happen while the next expedition has two or more specimens left");
+foundSoFar(1);
+for (let i = 0; i < 400; i++) assert.ok(!G.startBox(0).lucky, "a lucky find took the last specimen of the next expedition");
+console.log("  ✓ a lucky find never takes the next expedition's last specimen");
+let finishes = 0;
+while (G.stageNow() <= finalStage) {
+  const b = G.startBox(0);
+  for (const p of b.probs) { G.recordSolve(p, 1); b.i++; }
+  if (G.award().rankUp) finishes++;
+}
+assert.equal(finishes, 2, "the last two expeditions should each be finished in their own turn");
+console.log("  ✓ so the last two expeditions are each finished, and celebrated, in their own turn");
 
 const gentle = play("Gentle pace, perfect player (every problem right first time), 6 rocks a day", { pace: "gentle", perDay: 6, firstTry: 1, struggle: 0 });
 const steady = play("Steady pace, strong player (85% first try), 6 rocks a day", { pace: "steady", perDay: 6, firstTry: 0.85, struggle: 0.03 });

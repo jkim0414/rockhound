@@ -168,7 +168,9 @@ export function startBox(variant) {
   if (st > STAGES.length) return null;
   let pool = missingIn(st), lucky = false;
   const next = missingIn(st + 1);
-  if (next.length && foundIn(st) >= 3 && Math.random() < LUCKY_CHANCE) { pool = next; lucky = true; }
+  // A lucky find never takes the last specimen of the next expedition: that one is left to be found there,
+  // so every expedition is finished in its own turn and gets its own celebration.
+  if (next.length && foundIn(st) >= 3 && Math.random() < LUCKY_CHANCE && next.length > 1) { pool = next; lucky = true; }
   const floor = levelFloor();
   const probs = takeStrands(3).map(sid => {
     const m = S.math[sid];
