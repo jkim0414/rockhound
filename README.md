@@ -95,7 +95,8 @@ syncing resumes later.
 ## How the game works
 
 - **One mystery rock = three problems**, each from a different math strand, so practice is always mixed.
-- **Every rock holds a new specimen.** No duplicates. A rock occasionally holds a "lucky find" from the next expedition.
+- **Every rock holds a new specimen.** No duplicates. A rock occasionally holds a "lucky find" from the next expedition,
+  though never that expedition's last specimen, so each expedition is still finished in its own turn.
 - **Ten expeditions**, from Backyard & Beach to Legends. Finishing one earns a new rank and unlocks a Field Guide chapter.
 - **Mistakes cost nothing.** No timer, no lives, no lost progress. A miss shows a hint; a second miss
   shows the first steps of the solution; a third shows the full worked example and then offers a
